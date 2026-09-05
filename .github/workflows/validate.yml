@@ -1,0 +1,53 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Plugin manifests are valid JSON
+        run: |
+          for f in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
+            python3 -m json.tool "$f" > /dev/null && echo "ok  $f"
+          done
+
+      - name: Skills and agents have frontmatter with name and description
+        run: |
+          fail=0
+          for f in skills/*/SKILL.md agents/*.md; do
+            head -1 "$f" | grep -qx -- '---' || { echo "no frontmatter: $f"; fail=1; continue; }
+            grep -qm1 '^name:'        "$f" || { echo "missing name: $f";        fail=1; }
+            grep -qm1 '^description:' "$f" || { echo "missing description: $f"; fail=1; }
+            echo "ok  $f"
+          done
+          exit $fail
+
+      - name: Commands have a description
+        run: |
+          fail=0
+          for f in commands/*.md; do
+            grep -qm1 '^description:' "$f" || { echo "missing description: $f"; fail=1; continue; }
+            echo "ok  $f"
+          done
+          exit $fail
+
+      - name: Plugin version matches the latest CHANGELOG entry
+        run: |
+          v=$(python3 -c "import json;print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          c=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | tr -d '#[] ')
+          echo "plugin.json=$v  changelog=$c"
+          [ "$v" = "$c" ] || { echo "::error::version mismatch"; exit 1; }
+
+      - name: No secrets committed
+        run: |
+          if git grep -nEI '(secret_[A-Za-z0-9]{20,}|ntn_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|[0-9]{8,10}:AA[A-Za-z0-9_-]{30,})' -- . ; then
+            echo "::error::possible credential committed"; exit 1
+          fi
+          echo "clean"

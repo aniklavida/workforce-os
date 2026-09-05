@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Tag must match plugin.json version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          v=$(python3 -c "import json;print(json.load(open('.claude-plugin/plugin.json'))['version'])")
+          echo "tag=$tag  plugin.json=$v"
+          [ "$tag" = "$v" ] || { echo "::error::tag does not match plugin.json"; exit 1; }
+
+      - name: Extract this version's changelog section
+        run: |
+          awk -v v="${GITHUB_REF_NAME#v}" '
+            $0 ~ "^## \\["v"\\]" {f=1; next}
+            f && /^## \[/ {exit}
+            f {print}
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          cat RELEASE_NOTES.md
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: RELEASE_NOTES.md
+          generate_release_notes: true
