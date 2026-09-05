@@ -1,0 +1,13 @@
+{
+  "name": "workforce-os",
+  "owner": {
+    "name": "Md Habibur Rahman"
+  },
+  "plugins": [
+    {
+      "name": "workforce-os",
+      "source": "./",
+      "description": "A Notion life OS your agents actually run."
+    }
+  ]
+}

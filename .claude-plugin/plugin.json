@@ -1,0 +1,9 @@
+{
+  "name": "workforce-os",
+  "description": "A Notion life OS your agents actually run. Sets up the structure, then operates it — you never fill a field.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Md Habibur Rahman"
+  },
+  "keywords": ["notion", "second-brain", "life-os", "agents", "productivity", "tasks"]
+}
