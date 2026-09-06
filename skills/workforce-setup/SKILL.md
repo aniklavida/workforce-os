@@ -58,6 +58,23 @@ Set the field descriptions in Notion. They are how a future agent learns the con
 - **Calendar** — by Due Date
 - **Someday** — Type is Someday
 
+### Navigation — build it as a gallery, not a list of links
+
+This is what separates a template that looks professional from one that looks improvised.
+
+Create a **Sections** database. Each row **is** an actual section page, so clicking a card opens the real thing rather than a stub. Display it as a **gallery with page covers as the card preview**, grouped by band.
+
+| Property | Type | Purpose |
+|---|---|---|
+| Section | Title | |
+| Group | Select — `Work` / `You` / `Engine` | Groups the gallery into bands |
+| Order | Number | Controls card order within a band |
+| What it is | Text | The one line shown on the card |
+
+Give every section page a **cover image and an emoji icon**. The cover is the card art; without it the gallery renders as empty grey rectangles and looks worse than a plain list.
+
+A flat list of page links is the default and it reads as unfinished. Cards with art read as a product.
+
 ### Pages
 
 ```
@@ -86,10 +103,13 @@ Create in this order so nothing is orphaned if it stops halfway:
 1. Home page
 2. Task database + fields
 3. Views
-4. Domain pages
-5. Goals, Knowledge, Profile, Logs
-6. Engine Room + agent pages
-7. Link everything from Home
+4. Section pages: Domains, Goals, Knowledge, Profile, Reminders, Logs, Engine Room
+5. Domain pages
+6. Engine Room contents + agent pages
+7. Sections database, then move the section pages into it
+8. Gallery view, grouped by band
+9. Covers and icons on every page
+10. Embed the gallery and the live views on Home
 
 **Be resumable.** Before creating anything, check whether it already exists. Re-running setup must never produce duplicates. If something fails, report exactly what was built and what was not — never leave the user guessing.
 
@@ -103,3 +123,11 @@ Tell them, in plain language:
 - To add a life area, add a Domain option, not a database
 
 Then create one real task with them, end to end, so the first thing they see is it working.
+
+## A note on how it looks
+
+Do not treat this as decoration to add later. A workspace with no covers, no icons and a bare list of page links reads as unfinished, and people abandon things that feel unfinished — regardless of how well the underlying system works.
+
+Covers and icons on every page. Navigation as a gallery. A coloured callout heading each component, because Notion has no borders and callout backgrounds are the only way to make one block read as separate from the next.
+
+Ask the user to pick the cover art themselves if they care about it. Notion's built-in picker takes them ten seconds per page and they get an aesthetic they actually like.
