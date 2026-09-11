@@ -1,75 +1,61 @@
 # Workforce OS
 
-**The Ultimate Agent Workforce — a Notion life OS your agents actually run.**
+**Coordinate a workforce of AI agents and people through Notion.**
 
-Most Notion life OS templates die within a month. Not because they are badly designed, but because *you* have to maintain them. Every database needs updating, every property needs filling. You fall behind once, and the system becomes a monument to falling behind.
+Workforce OS is an open operating protocol and Claude Code plugin for turning rough instructions into structured work, routing it to the right worker, preserving handoffs and keeping the shared Notion system accurate.
 
-Workforce OS fixes the cause instead of adding more modules: **the agents do the maintenance.**
+> **Pre-release:** the protocol, Claude Code plugin, commands and setup/operation skills exist. The planned bot gateway, scheduled heartbeat and verified cross-agent installers do not exist yet. Do not treat this repository as a finished release.
 
-You send one messy line to your assistant on Telegram or Discord. It writes the proper task — next action, domain, dates, priority — into Notion. Then it tells you what matters, once a day. You never fill a field.
+## The problem
 
----
+Work performed through AI agents is easily trapped in chat history. Ownership becomes unclear, agents collide, context is repeatedly reloaded, and the user becomes responsible for maintaining the system that was supposed to help them.
 
-## What makes it different
+Workforce OS gives agents and people one system of record with explicit roles, assignments, domain-scoped context and handoff rules.
 
-| Every other life OS | Workforce OS |
-|---|---|
-| You fill the fields | An agent fills them from your rough message |
-| Dies when you stop maintaining it | Nothing to maintain |
-| No reason to come back | Your assistant messages you daily |
-| One database per life area → 17 dead modules | One task database, **Domains** as options |
-| Built for an idealised version of you | Built for someone who types three words and moves on |
+## Core model
 
-## The core idea: Domains
+- **Assistant** — captures, structures, routes and monitors work.
+- **Advisor** — reviews direction and raises useful concerns.
+- **Specialist** — performs assigned work and hands back evidence.
+- **Worker** — an agent or person with a profile, role, channel, permissions and domain scope.
+- **Domain** — both human navigation and the boundary for loading context.
+- **Task** — one record in the shared task database.
+- **Heartbeat** — a scheduled review that stays silent when nothing deserves attention.
 
-Other templates get "complete" by adding a database for every area of life — health, finance, travel, reading, career. You end up maintaining twelve systems.
+## Current repository contents
 
-Here, a life area is **one option in one field**. Adding *Health* to your life costs nothing. That is why this can cover everything and still stay small.
+- [`AGENTS.md`](AGENTS.md) — the operating contract.
+- [`docs/STRUCTURE.md`](docs/STRUCTURE.md) — current Notion structure.
+- `agents/` — assistant, advisor and specialist profiles.
+- `commands/` — capture, daily review, planning review and assignment flows.
+- `skills/` — Claude Code setup and operating skills.
+- `.claude-plugin/` — Claude Code plugin metadata.
 
-Domains do double duty: they are how you navigate, and how an agent knows which context to load. A task tagged `Australia` means the agent reads the Australia page and your documents — not your whole workspace.
+## Current installation status
 
-## Roles, not one big assistant
+### Claude Code
 
-Three kinds of agent, deliberately separated:
+The plugin is packaged for Claude Code, but a clean-install release has not yet been published. After the first verified release, the intended command will use the real repository owner:
 
-- **Assistant** — captures, organises, assigns, monitors, reminds. Never does the work itself.
-- **Advisor** — checks whether the plan is still right. Researches. Stays silent unless it found something worth saying.
-- **Specialists** — actually do assigned work and hand back output for approval.
-
-Collapse these into one agent and it becomes a to-do list with extra steps.
-
-## Works with any agent
-
-The operating protocol lives in [`AGENTS.md`](AGENTS.md) — the [cross-tool open standard](https://agents.md/) backed by OpenAI, Google, Cursor, Factory and Sourcegraph. Claude, ChatGPT, Gemini, Cursor and self-hosted agents all read the same file.
-
-Claude Code additionally gets a one-command install and two skills.
-
-## Install
-
-**Claude Code**
-
-```
-/plugin marketplace add <owner>/workforce-os
+```text
+/plugin marketplace add aniklavida/workforce-os
 /plugin install workforce-os
 ```
 
-Then run the setup skill. It asks a few short questions and builds the structure in your own Notion — nothing is copied from anyone else's workspace.
+### Other agents and bots
 
-**Any other agent**
+`AGENTS.md` and `docs/STRUCTURE.md` are portable instructions. Automated installation and verified runtime support for Codex, other coding agents, Telegram and Discord are planned for v1.0 and must be tested before they are advertised as supported.
 
-Point it at `AGENTS.md` and `docs/STRUCTURE.md`, and connect it to Notion.
+## Version 1.0 direction
 
-## Requirements
+Version 1.0 will complete the Workforce database and relation-based assignment model, idempotent Notion setup, cross-agent installation guidance, scheduled heartbeat, Telegram/Discord channel adapters, permissions and a full clean-install/release proof.
 
-- A Notion account
-- Notion access for your agent (MCP or API)
-- Optional: Telegram or Discord, if you want the daily message
+See:
 
-## Start small on purpose
-
-Day one turns on five things: **Tasks · Domains · Today · Reminders · Goals.**
-
-Habits, finance, health, reading, travel and contacts exist but stay off until you actually want them. This is deliberate — completeness on day one is what kills these systems.
+- [Product specification](docs/SPEC.md)
+- [Architecture](docs/ARCHITECTURE.md)
+- [Build-to-release roadmap](docs/ROADMAP.md)
+- [Release checklist](docs/RELEASE_CHECKLIST.md)
 
 ## Licence
 

@@ -27,5 +27,5 @@ First public version.
 
 Day one turns on five things: tasks, domains, today, reminders and goals. Habits, finance, health, reading, travel and contacts exist but stay off until asked for — completeness on day one is the documented reason these systems get abandoned.
 
-[Unreleased]: https://github.com/anikherenow/workforce-os/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/anikherenow/workforce-os/releases/tag/v0.1.0
+[Unreleased]: https://github.com/aniklavida/workforce-os/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/aniklavida/workforce-os/releases/tag/v0.1.0
