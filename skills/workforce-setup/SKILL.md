@@ -1,6 +1,6 @@
 ---
 name: workforce-setup
-description: Build the Workforce OS structure in the user's own Notion — one task database, Domains, goals, knowledge, logs and an agent control room. Use when the user wants to set up Workforce OS, create their Notion life OS, or rebuild the structure. Requires Notion access.
+description: Build the Workforce OS structure in the user's own Notion — one task database, Domains, goals, knowledge, logs and an agent control room. Use when the user wants to set up Workforce OS, build a second brain for their work in Notion, or rebuild the structure. Requires Notion access.
 ---
 
 # Workforce OS — Setup

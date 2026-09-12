@@ -7,7 +7,7 @@
     {
       "name": "workforce-os",
       "source": "./",
-      "description": "A Notion life OS your agents actually run."
+      "description": "A second brain for work, built on Notion. Your agents run it."
     }
   ]
 }
