@@ -4,7 +4,13 @@
 
 Workforce OS is an open operating protocol and Claude Code plugin for turning rough instructions into structured work, routing it to the right worker, preserving handoffs and keeping the shared Notion system accurate.
 
-> **Pre-release:** the protocol, Claude Code plugin, commands and setup/operation skills exist. The planned bot gateway, scheduled heartbeat and verified cross-agent installers do not exist yet. Do not treat this repository as a finished release.
+> **Pre-release:** the protocol, Claude Code plugin, commands and setup/operation skills exist. A clean-install verification for Claude Code, and any support for Codex or other MCP-capable agents, are still planned. Do not treat this repository as a finished release.
+
+## What this is, and is not
+
+Workforce OS is a Notion structure plus an operating protocol, agent profiles, commands and setup/operation skills. That is the whole product.
+
+It ships **no runtime, no bot gateway, no scheduler and no Telegram/Discord adapters.** Scheduling and chat channels come from whichever agent you connect — Claude Code, Codex or another MCP-capable agent — not from this project. If your agent can run on a schedule and reach Notion, it can run the Workforce OS review protocol; that scheduling capability is the agent's, not something installed from here.
 
 ## The problem
 
@@ -20,7 +26,7 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 - **Worker** — an agent or person with a profile, role, channel, permissions and domain scope.
 - **Domain** — both human navigation and the boundary for loading context.
 - **Task** — one record in the shared task database.
-- **Heartbeat** — a scheduled review that stays silent when nothing deserves attention.
+- **Heartbeat** — a review protocol: a checklist for overdue, due-soon, stalled and waiting work, and a rule to stay silent when nothing deserves attention. Your connected agent runs it on its own schedule; Workforce OS does not schedule anything itself.
 
 ## Current repository contents
 
@@ -42,13 +48,13 @@ The plugin is packaged for Claude Code, but a clean-install release has not yet 
 /plugin install workforce-os
 ```
 
-### Other agents and bots
+### Codex and other MCP-capable agents
 
-`AGENTS.md` and `docs/STRUCTURE.md` are portable instructions. Automated installation and verified runtime support for Codex, other coding agents, Telegram and Discord are planned for v1.0 and must be tested before they are advertised as supported.
+`AGENTS.md` and `docs/STRUCTURE.md` are portable Markdown — no plugin required. Codex reads `AGENTS.md` directly by convention; any other agent that can read files and reach Notion over MCP can follow the same protocol. This path is **planned, not yet verified end to end** — do not advertise it as tested until it has been run in a clean environment. Chat delivery (Telegram, Discord or anything else) is whatever your agent already supports; Workforce OS has no channel code of its own.
 
 ## Version 1.0 direction
 
-Version 1.0 will complete the Workforce database and relation-based assignment model, idempotent Notion setup, cross-agent installation guidance, scheduled heartbeat, Telegram/Discord channel adapters, permissions and a full clean-install/release proof.
+Version 1.0 will complete the Workforce database and relation-based assignment model, idempotent Notion setup, verified cross-agent installation guidance (Claude Code today, Codex and others as they are tested), permissions, and a full clean-install/release proof. It will not add a runtime, a scheduler or channel adapters — those stay out of scope permanently.
 
 See:
 

@@ -5,7 +5,9 @@
 
 ## Product definition
 
-Workforce OS coordinates a configurable workforce of AI agents and people through a shared Notion system. It turns rough input into structured work, assigns ownership, scopes context by domain, preserves handoffs and produces a useful heartbeat without requiring the user to maintain database fields manually.
+Workforce OS coordinates a configurable workforce of AI agents and people through a shared Notion system. It turns rough input into structured work, assigns ownership, scopes context by domain, preserves handoffs and defines a review protocol, without requiring the user to maintain database fields manually.
+
+Workforce OS is a Notion structure, an operating protocol, agent profiles, commands and skills — nothing else. It builds no runtime, no bot gateway, no scheduler and no chat-channel adapters. It works with any agent that reaches Notion over MCP, because the protocol is portable Markdown; scheduling and chat delivery are that agent's own capability.
 
 It is not positioned as a generic life-OS template. A user may organize personal or professional work, but the product's distinguishing promise is multi-worker coordination.
 
@@ -33,7 +35,7 @@ It is not positioned as a generic life-OS template. A user may organize personal
 - One task database and one status contract serve users and workers.
 - Context is domain-scoped by default.
 - External, destructive or irreversible actions require approval.
-- Silence is valid when the heartbeat finds nothing useful.
+- Silence is valid when the review protocol finds nothing useful.
 - Only tested installation paths are described as supported.
 
 ## Core concepts
@@ -43,11 +45,11 @@ It is not positioned as a generic life-OS template. A user may organize personal
 | Workforce | All assignable agents and people |
 | Worker | One agent or person with a profile |
 | Role | Assistant, Advisor or Specialist |
-| Channel | Claude Code, Codex, Telegram, Discord, CLI or another adapter |
+| Channel | Whichever host or chat surface a worker uses — Claude Code, Codex, Telegram, Discord, CLI or another — supplied by that agent, not built by Workforce OS |
 | Domain | Navigation and context-loading boundary |
 | Task | One item in the shared work database |
 | Handoff | Reassignment with a recorded reason |
-| Heartbeat | Scheduled review and optional notification |
+| Heartbeat | A review protocol — checklist and silence rule — that the connecting agent runs on its own schedule |
 
 ## Information architecture
 
@@ -84,9 +86,9 @@ Read assigned non-done work, respect future start dates, mark active work in pro
 
 Record the reason, change the assigned worker and preserve task status unless the workflow itself changed.
 
-### Heartbeat
+### Heartbeat (review protocol)
 
-A scheduled run evaluates overdue work, work due soon, stalled work, waiting-on-user items, recent completions and suspiciously empty plans. It sends three to five useful lines through the configured channel or remains silent.
+A run — triggered by whatever schedule the connecting agent provides, not by Workforce OS — evaluates overdue work, work due soon, stalled work, waiting-on-user items, recent completions and suspiciously empty plans. It reports three to five useful lines through the agent's own chat surface or remains silent. Workforce OS defines the checklist and the silence rule; the agent supplies the schedule and the channel.
 
 ## Complete v1.0 scope
 
@@ -94,26 +96,31 @@ A scheduled run evaluates overdue work, work due soon, stalled work, waiting-on-
 - Tasks, Workforce, Domains, Goals, Knowledge, Profile and Logs structures.
 - Relation-based worker assignment and domain-scoped permissions.
 - Assistant, Advisor and Specialist operating profiles.
-- Capture, assignment, execution, handoff, review and heartbeat protocols.
+- Capture, assignment, execution, handoff, review and heartbeat (review-protocol) content.
 - Claude Code plugin with verified clean installation.
-- Documented and tested Codex/manual AGENTS.md setup.
-- Pluggable channel/runtime boundary.
-- Scheduled heartbeat runtime.
-- Telegram and Discord notification/interaction adapters.
-- Safe configuration, secret handling and disconnect/uninstall guidance.
+- Documented Codex/manual `AGENTS.md` setup, verified where feasible before release.
+- Safe configuration, secret handling and disconnect/uninstall guidance for whatever the protocol asks an agent to touch.
 - Migration from the current select-based assignment structure.
 - Examples, troubleshooting, contributor documentation and release automation.
 
+## Explicitly out of scope, permanently
+
+- A runtime process, bot gateway or scheduler of any kind.
+- Telegram, Discord or any other chat-channel adapter.
+- Anything that would require Workforce OS to run continuously rather than be read and executed by a connecting agent.
+
+These are not "not yet built" — they are not part of this product. An agent's own scheduling and chat capability is what carries the review protocol and delivers its output.
+
 ## Current implementation truth
 
-The repository currently contains the operating protocol, Claude Code plugin metadata, agent profiles, commands and Markdown skills. It does not yet contain the v1.0 heartbeat runtime, Telegram/Discord integration, relation-based Workforce migration or verified cross-agent installers.
+The repository currently contains the operating protocol, Claude Code plugin metadata, agent profiles, commands and Markdown skills. It does not yet contain the relation-based Workforce migration or a verified Codex/other-agent installation path.
 
 ## Outside v1.0
 
 - A proprietary Notion replacement or hosted project-management database.
 - Built-in frontier AI models.
 - Enterprise billing, organization administration or complex compliance controls.
-- Broad integrations beyond the verified initial agent and channel adapters.
+- A runtime, scheduler or chat-channel adapter of any kind (see "Explicitly out of scope" above).
 - Claims that every agent host works without host-specific installation testing.
 
 ## Version 1.0 acceptance
@@ -123,9 +130,8 @@ The repository currently contains the operating protocol, Claude Code plugin met
 - Two workers cannot silently overwrite user notes or each other's ownership.
 - Handoffs preserve a reason and correct ownership.
 - Domain permissions prevent undeclared context loading.
-- Heartbeat runs on schedule, reports only actionable items and can remain silent.
-- Telegram and Discord adapters pass end-to-end tests with safe secret handling.
-- Claude Code and Codex installation paths are tested from clean environments.
+- The review protocol, run by a connecting agent on its own schedule, reports only actionable items and can remain silent — verified against fixture data.
+- Claude Code installation is tested from a clean environment; Codex's `AGENTS.md` path is documented and tested where feasible.
 - Disconnect/uninstall instructions remove access without deleting user data.
 - README claims match demonstrated behavior.
 - Release, demo, licence, security policy and changelog are published.
