@@ -4,31 +4,31 @@ The goal is one useful, market-ready v1.0, followed by maintenance driven by rea
 
 ## 0. Reconcile and lock
 
-Lock positioning, v1.0 scope, the worker schema, the heartbeat/channel commitment and the runtime direction, and make the documented Notion structure agree with the public docs.
+Lock positioning, v1.0 scope, the worker schema and the review-protocol content, and make the documented Notion structure agree with the public docs.
 
-**Done:** no unresolved product contradiction remains and the v1.0 scope is fixed.
+**Done:** no unresolved product contradiction remains and the v1.0 scope is fixed. Workforce OS is a Notion structure plus skills only — no runtime, bot gateway, scheduler or chat adapters, at any version.
 
 ## 1. Structure and migration
 
-Make setup idempotent; add the Workforce database, relation-based assignment, profile permissions and safe migration from the current structure.
+Make setup idempotent; add the Workforce database, relation-based assignment, profile permissions and safe migration from the current structure. Decide and document the recurring-work schema (properties, template, next-occurrence rule).
 
 **Done:** repeated setup creates no duplicates and migration preserves user data.
 
 ## 2. Operating protocol
 
-Align AGENTS.md, profiles, commands and skills with capture, routing, handoff, permissions and multi-worker semantics. Add fixture workspaces and contract tests where possible.
+Align AGENTS.md, profiles, commands and skills with capture, routing, handoff, permissions, multi-worker semantics and the review-protocol checklist. Add fixture workspaces and contract tests where possible.
 
-**Done:** two distinct workers can operate the same workspace without ownership or notes collisions.
+**Done:** two distinct workers can operate the same workspace without ownership or notes collisions, and a fixture run of the review protocol produces the right actionable lines and correctly stays silent.
 
-## 3. Runtime, heartbeat and channels
+## 3. Cross-agent verification
 
-Implement the minimal runtime, scheduler, Notion adapter and Telegram/Discord adapters with safe configuration and observability.
+Test the Claude Code plugin from a clean install. Document and, where feasible, verify the Codex `AGENTS.md` path and any other MCP-capable agent that reaches Notion. Label each path implemented-and-tested, experimental, planned or unsupported — never leave one unlabelled.
 
-**Done:** scheduled heartbeat behaves correctly, sends through configured channels and remains silent when appropriate.
+**Done:** Claude Code installation is verified end to end; Codex's documented path has been walked through at least once; every other agent path is honestly labelled.
 
 ## 4. Installation and hardening
 
-Test Claude Code and Codex setup from clean environments; document other-agent portability accurately; test permissions, rate limits, retries, migration, disconnect and secret handling.
+Test Claude Code and Codex setup from clean environments; document other-agent portability accurately; test permissions, migration, disconnect and secret handling for whatever the protocol asks an agent to touch.
 
 **Done:** documented installation/uninstall paths work and no planned capability is marketed as implemented.
 

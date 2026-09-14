@@ -11,8 +11,8 @@
 - [ ] Fresh setup and repeated setup pass without duplication.
 - [ ] Migration preserves existing tasks and user-authored notes.
 - [ ] Multi-worker assignment, permissions and handoff work end to end.
-- [ ] Heartbeat scheduling, silence behavior and channel delivery work.
-- [ ] Claude Code and Codex installation paths pass fresh-environment tests.
+- [ ] The review protocol's checklist and silence behavior are verified against fixture data (scheduling and delivery are the connecting agent's own capability, not tested here).
+- [ ] Claude Code installation passes fresh-environment tests; the Codex `AGENTS.md` path is documented and tested where feasible.
 - [ ] Disconnect/uninstall removes access without deleting user data.
 
 ## Repository
@@ -26,6 +26,6 @@
 
 ## Launch
 
-- [ ] A 60–90 second demo proves capture, routing, handoff and heartbeat.
+- [ ] A 60–90 second demo proves capture, routing, handoff and the review protocol.
 - [ ] Release notes and changelog are accurate.
 - [ ] Tag and public release are created only after all blockers pass.
