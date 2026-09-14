@@ -19,7 +19,7 @@ Do not build a generic workspace and hand it over. Ask these, and build from the
 
 1. **What are the main areas of your life right now?** (Their Domains — expect three to eight. Their words, not yours: "Australia", "my company", "day job".)
 2. **What should your assistant call you?**
-3. **Where do you want the daily message — Telegram, Discord, or nowhere for now?**
+3. **Where do you want the daily message — right here in this chat, or somewhere else your agent already delivers messages?** Workforce OS has no chat adapter of its own; delivery uses whatever surface the connecting agent already has.
 4. **What is the one thing you are actually working toward?** (Becomes their goals page. One line is enough.)
 5. **Which agents do you have, or want?** (If they don't know, create only the Assistant.)
 
