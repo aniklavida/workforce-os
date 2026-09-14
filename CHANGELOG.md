@@ -8,6 +8,10 @@ Versions here track the **protocol and plugin**, not the user's own workspace. A
 
 ## [Unreleased]
 
+### Changed
+
+- **Scope narrowed to Notion structure plus skills.** Workforce OS is now defined as a Notion workspace structure, an operating protocol, agent profiles and commands, and Claude Code setup/operation skills — nothing else. Earlier drafts of the docs described a planned runtime, a scheduled heartbeat runtime and Telegram/Discord channel adapters; none of that is in scope any more, at any version. Scheduling and chat delivery are the connecting agent's own capability. The "heartbeat" is now documented as a review protocol — a checklist and a silence rule — that an agent runs on its own schedule, not something Workforce OS runs itself.
+
 ## [0.1.0] — 2026-09-05
 
 First public version.
