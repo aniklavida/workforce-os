@@ -12,11 +12,10 @@ Versions here track the **protocol and plugin**, not the user's own workspace. A
 
 - **Scope narrowed to Notion structure plus skills.** Workforce OS is now defined as a Notion workspace structure, an operating protocol, agent profiles and commands, and Claude Code setup/operation skills — nothing else. Earlier drafts of the docs described a planned runtime, a scheduled heartbeat runtime and Telegram/Discord channel adapters; none of that is in scope any more, at any version. Scheduling and chat delivery are the connecting agent's own capability. The "heartbeat" is now documented as a review protocol — a checklist and a silence rule — that an agent runs on its own schedule, not something Workforce OS runs itself.
 
-## [0.1.0] — 2026-09-05
+### Added — written, not yet released
 
-First public version.
-
-### Added
+Everything below exists in the repository. None of it has been tagged or
+published as a release, so it is listed here rather than under a version.
 
 - **`AGENTS.md`** — the operating protocol, in the [agents.md](https://agents.md/) cross-tool format so Claude, ChatGPT, Gemini, Cursor and self-hosted agents read the same file.
 - **Field contract** — one shared `Status` for the user and every agent, and two separate note fields so the user's thinking and the agent's log never overwrite each other.
@@ -31,5 +30,4 @@ First public version.
 
 Day one turns on five things: tasks, domains, today, reminders and goals. Habits, finance, health, reading, travel and contacts exist but stay off until asked for — completeness on day one is the documented reason these systems get abandoned.
 
-[Unreleased]: https://github.com/aniklavida/workforce-os/compare/v0.1.0...HEAD
-[0.1.0]: https://github.com/aniklavida/workforce-os/releases/tag/v0.1.0
+[Unreleased]: https://github.com/aniklavida/workforce-os/commits/main
