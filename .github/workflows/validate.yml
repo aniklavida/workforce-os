@@ -38,12 +38,21 @@ jobs:
           done
           exit $fail
 
-      - name: Plugin version matches the latest CHANGELOG entry
+      - name: Plugin version agrees with the CHANGELOG
         run: |
           v=$(python3 -c "import json;print(json.load(open('.claude-plugin/plugin.json'))['version'])")
           c=$(grep -m1 -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | tr -d '#[] ')
-          echo "plugin.json=$v  changelog=$c"
-          [ "$v" = "$c" ] || { echo "::error::version mismatch"; exit 1; }
+          echo "plugin.json=$v  newest released version in CHANGELOG=${c:-<none>}"
+          if [ -z "$c" ]; then
+            # Nothing has been released yet. The manifest must say so rather
+            # than name a version a user could not have installed.
+            [ "$v" = "0.0.0" ] || {
+              echo "::error::CHANGELOG records no released version, so plugin.json must be 0.0.0, not $v"
+              exit 1
+            }
+          else
+            [ "$v" = "$c" ] || { echo "::error::version mismatch"; exit 1; }
+          fi
 
       - name: No secrets committed
         run: |
