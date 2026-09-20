@@ -10,7 +10,7 @@ Workforce OS is an open operating protocol and Claude Code plugin for turning ro
 
 Workforce OS is a Notion structure plus an operating protocol, agent profiles, commands and setup/operation skills. That is the whole product.
 
-It ships **no runtime, no bot gateway, no scheduler and no Telegram/Discord adapters.** Scheduling and chat channels come from whichever agent you connect — Claude Code, Codex or another MCP-capable agent — not from this project. If your agent can run on a schedule and reach Notion, it can run the Workforce OS review protocol; that scheduling capability is the agent's, not something installed from here.
+It ships **no runtime, no bot gateway, no scheduler and no Telegram/Discord adapters.** Scheduling and chat channels come from whichever agent you connect — Claude Code, Codex or another MCP-capable agent — not from this project. An agent that can run on a schedule and reach Notion should be able to run the Workforce OS review protocol; that scheduling capability is the agent's, not something installed from here. This has been run with Claude Code only — every other host is planned and unverified.
 
 ## The problem
 
