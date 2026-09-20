@@ -10,6 +10,7 @@ Versions here track the **protocol and plugin**, not the user's own workspace. A
 
 ### Changed
 
+- **Documentation claims aligned with verified implementation.** Removed premature installation commands from the README until a release is published, explicitly documented the absence of clean-install evidence and demos, and labelled non-Claude Code agent paths as planned and unverified across all public documentation.
 - **Scope narrowed to Notion structure plus skills.** Workforce OS is now defined as a Notion workspace structure, an operating protocol, agent profiles and commands, and Claude Code setup/operation skills — nothing else. Earlier drafts of the docs described a planned runtime, a scheduled heartbeat runtime and Telegram/Discord channel adapters; none of that is in scope any more, at any version. Scheduling and chat delivery are the connecting agent's own capability. The "heartbeat" is now documented as a review protocol — a checklist and a silence rule — that an agent runs on its own schedule, not something Workforce OS runs itself.
 
 ### Added — written, not yet released
@@ -17,13 +18,13 @@ Versions here track the **protocol and plugin**, not the user's own workspace. A
 Everything below exists in the repository. None of it has been tagged or
 published as a release, so it is listed here rather than under a version.
 
-- **`AGENTS.md`** — the operating protocol, in the [agents.md](https://agents.md/) cross-tool format so Claude, ChatGPT, Gemini, Cursor and self-hosted agents read the same file.
+- **`AGENTS.md`** — the operating protocol, in the [agents.md](https://agents.md/) cross-tool format for cross-agent compatibility (Claude Code is the only tested path today; support for other agents is planned).
 - **Field contract** — one shared `Status` for the user and every agent, and two separate note fields so the user's thinking and the agent's log never overwrite each other.
 - **Domains** — life areas as options on one database rather than a database each. This is what lets the system cover everything without growing.
 - **Three agent roles** — assistant (manages), advisor (thinks), specialist (does the work), deliberately kept apart.
 - **Two skills** — `workforce-setup` builds the structure from five questions; `workforce-operate` runs it day to day.
 - **Four commands** — `/capture`, `/daily`, `/review`, `/assign`.
-- **`docs/STRUCTURE.md`** — the structure written out for agents that are not Claude Code.
+- **`docs/STRUCTURE.md`** — the structure written out for agents that are not Claude Code (planned, unverified).
 - Claude Code plugin and marketplace manifests, MIT licence, and a `.gitignore` that is strict about tokens and Notion exports.
 
 ### Notes

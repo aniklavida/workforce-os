@@ -4,7 +4,7 @@
 
 Workforce OS is an open operating protocol and Claude Code plugin for turning rough instructions into structured work, routing it to the right worker, preserving handoffs and keeping the shared Notion system accurate.
 
-> **Pre-release:** the protocol, Claude Code plugin, commands and setup/operation skills exist. A clean-install verification for Claude Code, and any support for Codex or other MCP-capable agents, are still planned. Do not treat this repository as a finished release.
+> **Pre-release:** The protocol, Claude Code plugin metadata, commands and setup/operation skills exist in this repository. No release has been published, no clean-install evidence exists yet, and no demo exists. Clean-install verification for Claude Code, and any support for Codex or other MCP-capable agents, are planned. Do not treat this repository as a finished release.
 
 ## What this is, and is not
 
@@ -39,18 +39,15 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 
 ## Current installation status
 
+No release has been published yet, no clean-install evidence exists, and no demo exists.
+
 ### Claude Code
 
-The plugin is packaged for Claude Code, but a clean-install release has not yet been published. After the first verified release, the intended command will use the real repository owner:
-
-```text
-/plugin marketplace add aniklavida/workforce-os
-/plugin install workforce-os
-```
+The plugin is packaged for Claude Code, but a verified release has not yet been published. Claude Code is the only active development and test path today. Installation commands will be documented once the first verified release is published.
 
 ### Codex and other MCP-capable agents
 
-`AGENTS.md` and `docs/STRUCTURE.md` are portable Markdown — no plugin required. Codex reads `AGENTS.md` directly by convention; any other agent that can read files and reach Notion over MCP can follow the same protocol. This path is **planned, not yet verified end to end** — do not advertise it as tested until it has been run in a clean environment. Chat delivery (Telegram, Discord or anything else) is whatever your agent already supports; Workforce OS has no channel code of its own.
+`AGENTS.md` and `docs/STRUCTURE.md` are portable Markdown — no plugin required. Codex reads `AGENTS.md` directly by convention; any other agent that can read files and reach Notion over MCP could follow the same protocol. This path is **planned, not yet verified end to end** — Claude Code is the only tested path today, and all other agent hosts are planned. Chat delivery is whatever your agent already supports; Workforce OS has no channel code of its own.
 
 ## Version 1.0 direction
 

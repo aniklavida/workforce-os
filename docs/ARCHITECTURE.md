@@ -19,7 +19,7 @@ Notion remains the storage and visual interface. Official Notion connectivity is
 ## Deliverables
 
 1. **Structure** — idempotent setup and migration for the user's Notion.
-2. **Protocol** — public operating rules, worker profiles, skills and commands, written as portable Markdown so any agent that can read files and reach Notion over MCP can execute them.
+2. **Protocol** — public operating rules, worker profiles, skills and commands, written as portable Markdown intended for any agent that can read files and reach Notion over MCP (Claude Code is the only tested path today; other agent paths are planned).
 
 There is no third deliverable. Earlier drafts of this document described a runtime, scheduler and channel-adapter layer; that layer is permanently out of scope. Scheduling and chat delivery belong to whichever agent the user connects.
 
@@ -28,7 +28,7 @@ There is no third deliverable. Earlier drafts of this document described a runti
 Workforce OS defines what a review checks (overdue, due-soon, stalled, waiting-on-user, recent completions) and when it should stay silent. It does **not** define how or when that check is triggered. In practice:
 
 - Claude Code can run the review on a schedule it manages itself (for example, a scheduled task the user sets up), then execute the `workforce-operate` skill against the checklist.
-- Codex or any other MCP-capable agent can do the same using its own scheduling mechanism and `AGENTS.md`.
+- Codex or any other MCP-capable agent is planned to do the same using its own scheduling mechanism and `AGENTS.md` (unverified today).
 - Delivery goes through whatever chat surface that agent already has — there is no Workforce OS-specific channel code to install.
 
 ## Boundaries
