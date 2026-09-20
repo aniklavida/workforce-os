@@ -7,7 +7,7 @@
 
 Workforce OS coordinates a configurable workforce of AI agents and people through a shared Notion system. It turns rough input into structured work, assigns ownership, scopes context by domain, preserves handoffs and defines a review protocol, without requiring the user to maintain database fields manually.
 
-Workforce OS is a Notion structure, an operating protocol, agent profiles, commands and skills — nothing else. It builds no runtime, no bot gateway, no scheduler and no chat-channel adapters. It works with any agent that reaches Notion over MCP, because the protocol is portable Markdown; scheduling and chat delivery are that agent's own capability.
+Workforce OS is a Notion structure, an operating protocol, agent profiles, commands and skills — nothing else. It builds no runtime, no bot gateway, no scheduler and no chat-channel adapters. Claude Code is the only tested path today; support for Codex or other agents that reach Notion over MCP is planned. The protocol is written as portable Markdown so connecting agents can follow it once verified; scheduling and chat delivery are that agent's own capability.
 
 It is not positioned as a generic life-OS template. A user may organize personal or professional work, but the product's distinguishing promise is multi-worker coordination.
 
@@ -113,7 +113,7 @@ These are not "not yet built" — they are not part of this product. An agent's 
 
 ## Current implementation truth
 
-The repository currently contains the operating protocol, Claude Code plugin metadata, agent profiles, commands and Markdown skills. It does not yet contain the relation-based Workforce migration or a verified Codex/other-agent installation path.
+The repository currently contains the operating protocol, Claude Code plugin metadata, agent profiles, commands and Markdown skills. It does not yet contain clean-install verification, a demo, the relation-based Workforce migration, or a verified Codex/other-agent installation path.
 
 ## Outside v1.0
 

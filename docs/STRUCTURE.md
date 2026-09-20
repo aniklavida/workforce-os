@@ -1,6 +1,6 @@
 # Structure
 
-For agents that are not Claude Code: this is what Workforce OS looks like, so you can build or operate it yourself.
+For agents that are not Claude Code (planned, unverified): this is what Workforce OS looks like, so you can build or operate it yourself.
 
 ## One database
 
