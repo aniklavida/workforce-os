@@ -31,7 +31,7 @@ therefore configures the relation with a `data_source_id`, not the older
 
 Credentials are never committed. Supply them through the environment:
 
-    NOTION_TOKEN            internal integration secret (starts with "ntn_")
+    NOTION_TOKEN            internal integration secret
     NOTION_PARENT_PAGE_ID   the page the Workforce database is created under
     NOTION_API_VERSION      optional, defaults to 2025-09-03
 
@@ -210,6 +210,29 @@ def assignment_blockers(worker: dict, task_domain: str) -> list[str]:
 
 def can_assign(worker: dict, task_domain: str) -> bool:
     return not assignment_blockers(worker, task_domain)
+
+
+def can_act_on_task(worker: dict, task: dict) -> tuple[bool, str]:
+    """Protocol check: can this worker act on this task?
+
+    Evaluates worker status and domain scope. If blocked, returns (False, reason)
+    with a clear single-line explanation.
+    """
+    try:
+        from workforce_permission import can_act_on_task as _can_act
+        return _can_act(worker, task)
+    except ImportError:
+        worker_name = worker.get("worker", "Unknown worker")
+        task_title = task.get("title") or task.get("task") or "Untitled task"
+        task_domain = task.get("domain") or task.get("Domain") or "Unassigned"
+        domains = worker.get("domains") or []
+        if worker.get("status") != "Active":
+            return False, f"Worker '{worker_name}' is {worker.get('status')!r}, not 'Active': cannot act on task '{task_title}'."
+        if not domains:
+            return False, f"Worker '{worker_name}' has empty Domains scope: cannot act on task '{task_title}' (domain '{task_domain}') because no domains are granted."
+        if task_domain not in domains:
+            return False, f"Worker '{worker_name}' domain scope {domains!r} does not include task domain '{task_domain}': cannot act on task '{task_title}'."
+        return True, f"Worker '{worker_name}' is authorized to act on task '{task_title}' in domain '{task_domain}'."
 
 
 def human_worker(name: str, domains: list[str] | None = None) -> dict:

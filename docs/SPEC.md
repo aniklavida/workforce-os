@@ -70,7 +70,14 @@ The task database includes title, status, assigned worker, domain, priority, typ
 
 ## Worker profile
 
-Every worker has a name, kind (`Agent` or `Human`), role, channel, permitted domains, capabilities, active/paused status and full profile instructions. Permission defaults are restrictive: an empty domain scope grants access to nothing, and sensitive domains require explicit access.
+Every worker has a name, kind (`Agent` or `Human`), role, channel, permitted domains, capabilities, active/paused status and full profile instructions.
+
+Permissions operate on three restrictive-by-default layers:
+1. **Domain scope:** A worker may act only on tasks in domains listed in its `Domains` field. Empty means none: cannot act and states why in one line.
+2. **Read scope:** Reading is restricted to pages declared in the task Domain's declared context block. Undeclared pages are out of scope.
+3. **Action gate:** Destructive, external, or irreversible actions require approval in chat unless `May approve` is explicitly enabled.
+
+The `Profile` domain holds identity documents and financial records and is granted to nobody by default; granting access requires an explicit, loggable audit step. Removing a worker revokes integrations (`Status = Paused`, `Channel = None`) without deleting user data. Credentials are outside the model entirely. All permission state is legible directly in Notion.
 
 ## Core workflows
 
@@ -113,7 +120,7 @@ These are not "not yet built" — they are not part of this product. An agent's 
 
 ## Current implementation truth
 
-The repository currently contains the operating protocol, Claude Code plugin metadata, agent profiles, commands and Markdown skills. The relation-based Workforce schema — the Workforce database and the `Assigned To` relation — is specified in the setup skill and encoded in `scripts/workforce_schema.py`, with a documented migration from the old select. That schema has been exercised only locally (`--dry-run` and `--self-test`); it has not been created against a live Notion workspace in this environment. The repository does not yet contain clean-install verification, a demo, a live-migration proof, or a verified Codex/other-agent installation path.
+The repository currently contains the operating protocol, Claude Code plugin metadata, agent profiles, commands and Markdown skills. The relation-based Workforce schema — the Workforce database and the `Assigned To` relation — is specified in the setup skill and encoded in `scripts/workforce_schema.py`, with a documented migration in `scripts/workforce_migration.py`. The three-layer permission model (domain scope, read scope, action gate) is specified in `AGENTS.md` and encoded in `scripts/workforce_permission.py`. These have been exercised only locally (`--dry-run` and `--self-test`); they have not been created or validated against a live Notion workspace in this environment. The repository does not yet contain clean-install verification, a demo, a live-migration proof, or a verified Codex/other-agent installation path.
 
 ## Outside v1.0
 
@@ -129,9 +136,11 @@ The repository currently contains the operating protocol, Claude Code plugin met
 - Rough input becomes a structured, assigned task without manual field editing.
 - Two workers cannot silently overwrite user notes or each other's ownership.
 - Handoffs preserve a reason and correct ownership.
-- Domain permissions prevent undeclared context loading.
+- Domain permissions prevent undeclared context loading and block workers with empty scope with a single-line explanation.
+- Action gate prevents unapproved external, destructive, or irreversible actions.
+- Profile domain is granted to nobody by default and requires an explicit, loggable step.
 - The review protocol, run by a connecting agent on its own schedule, reports only actionable items and can remain silent — verified against fixture data.
 - Claude Code installation is tested from a clean environment; Codex's `AGENTS.md` path is documented and tested where feasible.
-- Disconnect/uninstall instructions remove access without deleting user data.
+- Disconnect/uninstall instructions and worker revocation remove access without deleting user data.
 - README claims match demonstrated behavior.
 - Release, demo, licence, security policy and changelog are published.

@@ -880,7 +880,8 @@ class IdempotentSetupOrchestrator:
                         "Kind": {"select": {"name": "Human"}},
                         "Role": {"select": {"name": "Specialist"}},
                         "Channel": {"select": {"name": "None"}},
-                        "Domains": {"multi_select": [{"name": d} for d in self.answers.domains]},
+                        # Profile domain is sensitive and granted to nobody by default
+                        "Domains": {"multi_select": [{"name": d} for d in self.answers.domains if d.lower() != "profile"]},
                         "May approve": {"checkbox": True},
                         "Capabilities": {"rich_text": [{"type": "text", "text": {"content": "Workspace owner and primary operator."}}]},
                         "Status": {"select": {"name": "Active"}},
@@ -896,6 +897,7 @@ class IdempotentSetupOrchestrator:
             for ag in self.answers.agents:
                 ag_name = ag["name"]
                 if ag_name not in existing_worker_names:
+                    ag_domains = [d for d in ag.get("domains", self.answers.domains) if d.lower() != "profile"]
                     ag_row = self.ws.create_page(
                         parent={"type": "data_source_id", "data_source_id": self.workforce_ds_id},
                         title=ag_name,
@@ -904,7 +906,7 @@ class IdempotentSetupOrchestrator:
                             "Kind": {"select": {"name": ag.get("kind", "Agent")}},
                             "Role": {"select": {"name": ag.get("role", "Specialist")}},
                             "Channel": {"select": {"name": ag.get("channel", self.answers.daily_channel)}},
-                            "Domains": {"multi_select": [{"name": d} for d in ag.get("domains", self.answers.domains)]},
+                            "Domains": {"multi_select": [{"name": d} for d in ag_domains]},
                             "May approve": {"checkbox": ag.get("may_approve", False)},
                             "Capabilities": {"rich_text": [{"type": "text", "text": {"content": ag.get("capabilities", "")}}]},
                             "Status": {"select": {"name": ag.get("status", "Active")}},

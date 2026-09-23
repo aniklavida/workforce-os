@@ -214,6 +214,107 @@ python3 scripts/workforce_migration.py --live \
     --tasks-data-source-id <tasks_data_source_id>
 ```
 
+## The permission model — three layers of enforcement
+
+Workforce OS enforces permissions through three protocol layers:
+
+```text
+┌─────────────────────────────────────────────────────────────┐
+│ 1. Domain Scope (Acting on tasks)                           │
+│    Worker row `Domains` multi-select in Notion              │
+│    Empty means none: cannot act on tasks; states why        │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 2. Read Scope (Context loading)                             │
+│    Domain page "Declared Context" block                     │
+│    Undeclared pages out of scope; Profile denied by default │
+└──────────────────────────────┬──────────────────────────────┘
+                               │
+                               ▼
+┌─────────────────────────────────────────────────────────────┐
+│ 3. Action Gate (Destructive, external, irreversible actions)│
+│    `May approve` checkbox on Workforce row                  │
+│    Defaults off: requires explicit approval in chat         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 1. Domain scope (acting on tasks)
+A worker may act only on tasks whose Domain appears in the worker's `Domains`
+field in Notion. Defaults deny: an empty domain scope grants access to nothing.
+A newly created worker is useless until explicitly granted scope. When an action
+or assignment is blocked, the protocol requires stating clearly *why* in one line
+(e.g., `Worker 'Writer' has empty Domains scope: cannot act on task 'Draft post'
+(domain 'Writing') because no domains are granted`), rather than failing
+silently or stalling.
+
+### 2. Read scope (context loading)
+Each Domain page declares which pages an agent may read for that Domain. Anything
+not declared is strictly out of scope for reading, not just for acting. An agent
+operating on a task in domain `Writing` can only read the pages declared in the
+`Domains/Writing` page context declaration. Sensitive pages (such as `Profile`)
+and other domain pages (`Domains/Finance`) are mechanically identified as out of
+scope.
+
+### 3. Action gate (destructive, external, or irreversible actions)
+Any action that is destructive (deleting pages, databases, tasks), external
+(sending messages on the user's behalf), or irreversible (publishing, paying or
+disbursing funds) requires explicit user approval in chat. No worker approves its
+own output unless the `May approve` checkbox is explicitly checked on its
+Workforce row. The schema defaults `May approve` to off.
+
+### Sensitive domains and the Profile domain
+The `Profile` domain holds official documents, identity papers, and financial
+records. It is granted to **nobody by default** — not even human workspace
+owners or assistant rows. Granting `Profile` access is an opt-in, deliberate,
+and loggable step that requires an explicit author and stated reason.
+
+### Worker revocation without user data deletion
+Removing or pausing a worker revokes its integrations (`Status = Paused`,
+`Channel = None`) without deleting any user data. All tasks, user notes, agent
+notes, and pages are preserved byte-for-byte. Assigned tasks return to the
+reassignment queue.
+
+### Credentials outside the model
+The protocol never asks a worker to request, store, or handle passwords, OTPs,
+recovery codes, or full credit card and bank account numbers. Notion holds
+structured state and deliverables, never credentials.
+
+### Notion legibility
+Every permission boundary is legible directly in Notion:
+- Domain scope is read from `Domains`.
+- Approval capability is read from `May approve`.
+- Worker active status is read from `Status`.
+- Read context boundaries are read from the Domain page's declared context block.
+No hidden configuration files or opaque overrides exist.
+
+### Verification status of the permission model
+
+The permission enforcement layer is implemented and tested in `scripts/workforce_permission.py`.
+
+| Claim | How it was checked | Status |
+|---|---|---|
+| Worker with empty domain scope cannot act on task and states why in one line | `scripts/workforce_permission.py --self-test` (Test 1), asserted single-line reason naming worker, task, and empty scope | **Verified locally** |
+| Read scope rule mechanically checked against Domain page declared context; undeclared pages blocked | `--self-test` (Test 2), asserted declared pages allowed and undeclared pages/Profile blocked | **Verified locally** |
+| Profile domain granted to nobody by default; adding it requires explicit loggable step | `--self-test` (Test 3), asserted default constructors have no Profile, unlogged grants fail, and deliberate grant creates audit record | **Verified locally** |
+| Action gate blocks destructive, external, and irreversible actions when `May approve` is False | `--self-test` (Test 4), asserted deletion, external messages, publishing, and payments blocked pending chat approval | **Verified locally** |
+| Action gate permits actions when `May approve` is explicitly True | `--self-test` (Test 5), asserted authorized execution | **Verified locally** |
+| Worker revocation disables integrations without deleting user data or tasks | `--self-test` (Test 6), asserted status Paused, channel None, 0 tasks deleted, 0 user notes modified | **Verified locally** |
+| Protocol strictly rejects credential requests and storage | `--self-test` (Test 7), asserted passwords, OTPs, and card numbers blocked | **Verified locally** |
+| Permission state is completely legible directly from Notion properties | `--self-test` (Test 8), asserted permission inspection derived purely from Notion fields | **Verified locally** |
+| Permission enforcement against live Notion workspace | not run — no credential in this environment | **NOT YET EXECUTED** |
+
+Do not read the last row as a claim of tested behaviour. The one-command procedure to complete it is:
+
+```sh
+# Fallback REST path. The primary path is the agent's own Notion MCP/OAuth connection;
+# this script provides the honest executable check.
+export NOTION_TOKEN=...                 # never commit this
+export NOTION_PARENT_PAGE_ID=...        # the page Workforce OS lives under
+python3 scripts/workforce_permission.py --live
+```
+
 ## Deliverables
 
 1. **Structure** — idempotent setup and migration for the user's Notion.
