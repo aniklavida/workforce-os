@@ -46,6 +46,95 @@ Notion's API allows only a few requests per second (roughly three on average). E
 
 `scripts/notion_roundtrip_proof.py` implements and measures this; `docs/NOTION_ROUNDTRIP.md` records the observed behaviour.
 
+## The Workforce database and relation-based assignment
+
+The task database's `Assigned To` property is a **relation to a Workforce
+database**, one row per worker. It replaces the old hard-coded select (the
+user's name plus a fixed trio of agent options). The schema is:
+
+- **Workforce** — `Worker` (title), `Kind` (`Agent`/`Human`), `Role`
+  (`Assistant`/`Advisor`/`Specialist`), `Channel` (`Claude Code`/`Codex`/
+  `Telegram`/`Discord`/`CLI`/`None`), `Domains` (multi-select), `May approve`
+  (checkbox, off by default), `Capabilities` (text), `Status`
+  (`Active`/`Paused`). The row's page body is the worker's full startup
+  instructions. Every property carries a Notion field description naming who
+  writes it.
+- **Tasks** — `Assigned To` is a one-way `single_property` relation to
+  Workforce. A task points at exactly one worker; nothing is written back onto
+  the worker row.
+
+There is no claim field and no lock field. A relation already routes a row to
+exactly one worker, and `Status = In progress` on the task is the only "work has
+started" signal. Both note fields (`Notes`, the user's, and `Agent Notes`, the
+agent's) remain separate and neither role writes the other's.
+
+A **human teammate is an ordinary worker row** with `Kind = Human` and
+`Channel = None`. That is the reason the property is a relation rather than a
+side effect of one: adding a person later needs no schema change. A worker can
+be added entirely from Notion — no repository change — and is then assignable,
+because the protocol resolves the relation to the worker row rather than
+consulting a hard-coded list.
+
+The schema is encoded twice, deliberately: in prose in
+[`skills/workforce-setup/SKILL.md`](../skills/workforce-setup/SKILL.md), which
+is what a connected agent executes through Notion MCP, and in executable form
+in [`scripts/workforce_schema.py`](../scripts/workforce_schema.py), whose
+`--dry-run` prints the exact request payloads and whose `--self-test` proves the
+assignment gate.
+
+### The assignment gate — enforced by the protocol, not by Notion
+
+Notion relations do not enforce permissions, so the operating protocol does:
+
+- A worker with empty `Domains` may work in **no** domain. Scope is explicit;
+  empty is none, never all.
+- A task may only be assigned to a worker whose `Domains` includes the task's
+  `Domain`.
+- A `Paused` worker receives **no new assignments**. Work already on its queue
+  stays until it is reassigned; nothing new lands on it.
+
+`scripts/workforce_schema.py` implements this as `can_assign()`/`assignment_blockers()`
+and `--self-test` covers it with fixture workers. The gate is a rule the
+Assistant applies before it writes `Assigned To`; it is not a Notion feature.
+
+### Verification status of the Workforce schema
+
+The authoring environment for this change had no live Notion credential, so a
+line is drawn here between what was actually exercised and what still needs a
+workspace.
+
+| Claim | How it was checked | Status |
+|---|---|---|
+| Workforce property names, types and option sets | `scripts/workforce_schema.py --dry-run` prints the payloads; asserted in the dry-run report | **Verified locally** |
+| Every Workforce property carries a description naming its writer | `--dry-run` reports `property_descriptions_present: true` (payload-level; the API's persistence of descriptions is a separate live row below) | **Verified locally** |
+| `Assigned To` is a relation, not a select | `--dry-run` reports `assigned_to_is_relation: true`; setup skill provisions it as a relation | **Verified locally** |
+| Empty `Domains` blocks assignment; out-of-scope domain blocks assignment | `scripts/workforce_schema.py --self-test`, 7 fixture cases, 0 failures | **Verified locally** |
+| A `Paused` worker receives no new assignment | `--self-test` blocks it; the protocol states the rule | **Verified locally** (gate logic); **not** exercised against a live row |
+| A worker added in Notion with no repository change is assignable and read correctly | follows from the relation design; no list of workers exists in the repository to update | **Logic/documentation claim** — needs a live workspace to confirm |
+| The Workforce database is created in Notion | not run — no credential here | **NOT YET EXECUTED** |
+| The relation and its field descriptions persist and read back | not run — no credential here | **NOT YET EXECUTED** |
+| Relation target is configured under `data_source_id` on the 2025-09-03 API | not run — no credential here; older docs use `database_id` | **NOT YET EXECUTED** — confirm on first live run |
+
+Do not read the last three rows as a claim of tested behaviour. The one-command
+procedure to complete them is:
+
+```sh
+# Fallback REST path, matching the repo's documented one. The primary path is
+# still the agent's own Notion MCP/OAuth connection; this script is the
+# reference payload and the honest live check.
+export NOTION_TOKEN=ntn_...            # never commit this
+export NOTION_PARENT_PAGE_ID=...       # the page Workforce OS lives under
+python3 scripts/workforce_schema.py --live
+# then, to also install the relation on an existing Tasks data source:
+python3 scripts/workforce_schema.py --live \
+    --tasks-data-source-id <tasks_data_source_id>
+```
+
+If `Assigned To` already exists as a select, rename it to `Assigned To (legacy)`
+first — Notion cannot change a property's type in place. With the relation
+installed, add a worker directly in Notion, assign a task to it, and confirm the
+relation resolves; that settles the remaining live rows above.
+
 ## Deliverables
 
 1. **Structure** — idempotent setup and migration for the user's Notion.

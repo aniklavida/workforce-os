@@ -23,9 +23,9 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 - **Assistant** — captures, structures, routes and monitors work.
 - **Advisor** — reviews direction and raises useful concerns.
 - **Specialist** — performs assigned work and hands back evidence.
-- **Worker** — an agent or person with a profile, role, channel, permissions and domain scope.
+- **Worker** — an agent or person with a profile, role, channel, permissions and domain scope. Every worker is a row in the Workforce database.
 - **Domain** — both human navigation and the boundary for loading context.
-- **Task** — one record in the shared task database.
+- **Task** — one record in the shared task database, assigned to exactly one worker through the `Assigned To` relation.
 - **Heartbeat** — a review protocol: a checklist for overdue, due-soon, stalled and waiting work, and a rule to stay silent when nothing deserves attention. Your connected agent runs it on its own schedule; Workforce OS does not schedule anything itself.
 
 ## Current repository contents
@@ -35,6 +35,7 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 - `agents/` — assistant, advisor and specialist profiles.
 - `commands/` — capture, daily review, planning review and assignment flows.
 - `skills/` — Claude Code setup and operating skills.
+- `scripts/workforce_schema.py` — the Workforce database schema and the `Assigned To` relation in executable form, plus the assignment gate; `--dry-run` and `--self-test` run without a workspace, `--live` creates the database once a credential is supplied.
 - `scripts/notion_roundtrip_proof.py` — a throwaway probe that measures Notion rate limits and formatting round-trip fidelity, feeding [`docs/NOTION_ROUNDTRIP.md`](docs/NOTION_ROUNDTRIP.md).
 - `.claude-plugin/` — Claude Code plugin metadata.
 
@@ -52,7 +53,7 @@ The plugin is packaged for Claude Code, but a verified release has not yet been 
 
 ## Version 1.0 direction
 
-Version 1.0 will complete the Workforce database and relation-based assignment model, idempotent Notion setup, verified cross-agent installation guidance (Claude Code today, Codex and others as they are tested), permissions, and a full clean-install/release proof. It will not add a runtime, a scheduler or channel adapters — those stay out of scope permanently.
+Version 1.0 will complete the Workforce database and relation-based assignment model, idempotent Notion setup, verified cross-agent installation guidance (Claude Code today, Codex and others as they are tested), permissions, and a full clean-install/release proof. The Workforce database and the `Assigned To` relation are now specified in the setup skill and encoded in `scripts/workforce_schema.py`, with a documented migration from the old select; the schema has been checked locally but not yet created against a live workspace. Version 1.0 will not add a runtime, a scheduler or channel adapters — those stay out of scope permanently.
 
 See:
 

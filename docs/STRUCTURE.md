@@ -9,7 +9,7 @@ For agents that are not Claude Code (planned, unverified): this is what Workforc
 > `/v1/data_sources/{data_source_id}/query`. "Database" below means the Notion
 > container the user sees; the agent's handle on it is the data source.
 
-## One database
+## The task database
 
 Everything routes through a single task database. There is no second task list anywhere.
 
@@ -17,7 +17,7 @@ Everything routes through a single task database. There is no second task list a
 |---|---|---|
 | Task | Title | agent |
 | Status | Status — `Planned` / `In progress` / `Done` | **both** |
-| Assigned To | Select — user + one per agent | assistant |
+| Assigned To | **Relation → Workforce** — exactly one worker | assistant |
 | Domain | Select — one per life area | agent |
 | Priority | Select — High / Medium / Low | agent |
 | Type | Select — Task / Ongoing / Someday | agent |
@@ -28,17 +28,55 @@ Everything routes through a single task database. There is no second task list a
 | Agent Notes | Text | **agent only** |
 | Done Date | Date | agent |
 
+## The Workforce database — one row per worker
+
+The old `Engine Room` page is now a database. Every assignable worker is a row,
+agent or human. `Assigned To` is a relation to this database, so an assignment
+resolves to a profile (role, channel, permissions, domain scope) instead of a
+bare select label.
+
+| Property | Type | Written by |
+|---|---|---|
+| Worker | Title — the display name `Assigned To` points at | assistant |
+| Kind | Select — `Agent` / `Human` | assistant |
+| Role | Select — `Assistant` / `Advisor` / `Specialist` | assistant |
+| Channel | Select — `Claude Code` / `Codex` / `Telegram` / `Discord` / `CLI` / `None` | assistant |
+| Domains | Multi-select — **empty means none** | assistant |
+| May approve | Checkbox — off by default | assistant |
+| Capabilities | Text — what it does and does not do | assistant |
+| Status | Select — `Active` / `Paused` | **both** |
+
+The page body of each row holds the worker's full startup instructions. Every
+property carries a Notion field description naming who writes it.
+
+A human teammate is a row with `Kind = Human` and `Channel = None`. A worker
+added directly in Notion — no repository change — is assignable and read
+correctly, because the protocol resolves `Assigned To` through the relation.
+
+### The assignment gate
+
+- A worker with empty `Domains` may work in no domain. Scope is explicit.
+- A `Paused` worker receives no new assignments.
+- A task may only be assigned to a worker whose `Domains` includes the task's
+  `Domain`.
+
+The Assistant applies this at assignment time. Notion does not enforce it.
+`scripts/workforce_schema.py --self-test` proves the gate on fixture workers.
+
+See [`ARCHITECTURE.md`](ARCHITECTURE.md#verification-status-of-the-workforce-schema)
+for what has been verified locally versus what still needs a live workspace.
+
 ## Pages
 
 ```
 Home          today · waiting on you · upcoming · this week
-Tasks         the database
+Tasks         the task database
+Workforce     worker profiles · role, channel, permissions, instructions
 Domains       one page per life area
 Goals         what this is all for
 Knowledge     who the user is, how they work
 Profile       official records and documents
 Logs          daily work log + weekly summaries
-Engine Room   agent rules · one page per agent · outputs
 ```
 
 ## Domains do two jobs
@@ -51,4 +89,4 @@ Adding a life area means adding one select option. It never means adding a datab
 
 ## Why there is no lock field
 
-`Assigned To` routes a task to exactly one agent, and every agent has a distinct role, so two agents cannot compete for the same row. `Status = In progress` is the only signal that work has started.
+`Assigned To` routes a task to exactly one worker — the relation points at one Workforce row — and every worker has a distinct role, so two workers cannot compete for the same row. `Status = In progress` is the only signal that work has started.

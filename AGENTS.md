@@ -35,7 +35,7 @@ If the user ever finds themselves editing a database property by hand, the syste
 |---|---|---|
 | **Task** | Agent | Short, clear action or outcome |
 | **Status** | **Both** | `Planned → In progress → Done`. One shared flow — no separate agent status |
-| **Assigned To** | Assistant | Who does it. The user's own name, or an agent's |
+| **Assigned To** | Assistant | A relation to exactly one Workforce row — the worker who does it. Only an `Active` worker whose `Domains` cover the task's `Domain` may be assigned |
 | **Domain** | Agent | Which area of life. Drives context loading |
 | **Notes** | **User only** | Agents never write here |
 | **Agent Notes** | **Agent only** | Progress, blockers, questions, handoff |
@@ -46,9 +46,26 @@ If the user ever finds themselves editing a database property by hand, the syste
 
 Two note fields is intentional. The user's thinking and the agent's log must not overwrite each other.
 
+### Assignable workers
+
+Every worker — agent or human — is a row in the Workforce database carrying a
+`Kind`, `Role`, `Channel`, `Domains` scope, `May approve` flag, `Capabilities`
+and `Status`. A human teammate is just a row with `Kind = Human` and
+`Channel = None`, so adding one needs no schema change. A worker added directly
+in Notion is assignable without any change to this repository.
+
+**Assignment gate — apply it before writing `Assigned To`:**
+
+- Empty `Domains` means **none**, not all. A worker with no domains may not load
+  context for, or act on, any domain.
+- A `Paused` worker receives **no new assignments**.
+- A task may only go to a worker whose `Domains` includes the task's `Domain`.
+
+Notion does not enforce this. The Assistant does, at assignment time.
+
 ## 4 · Execution protocol
 
-1. Read your queue: `Assigned To = <your name>` and `Status ≠ Done`.
+1. Read your queue: tasks whose `Assigned To` relation includes your Workforce row, and `Status ≠ Done`.
 2. Start Date in the future? Wait.
 3. Already `In progress`? Someone is on it — check `Agent Notes` before touching it.
 4. Starting work → set `Status = In progress`.
@@ -57,7 +74,7 @@ Two note fields is intentional. The user's thinking and the agent's log must not
 7. Finished → `Status = Done`, set the completion date, leave a final `Agent Notes`.
 8. Stuck → say so in `Agent Notes` and ask in chat. Do not stall silently.
 
-**There are no claim or lock fields, and none are needed.** `Assigned To` already routes a task to exactly one agent, and every agent has a distinct role. Two agents cannot compete for the same row.
+**There are no claim or lock fields, and none are needed.** `Assigned To` already routes a task to exactly one worker, and every worker has a distinct role. Two workers cannot compete for the same row.
 
 ## 5 · Context routing — load what the Domain needs, nothing more
 
