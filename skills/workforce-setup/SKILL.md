@@ -31,6 +31,13 @@ If they give short or vague answers, that is expected — **write them up proper
 
 One database. Everything routes through it.
 
+When you read or write it through the API or MCP, address its **data source**,
+not the database. The 2025-09-03 Notion API made `data_source` the primary
+abstraction: rows are created with `parent.type = "data_source_id"` and read
+through `/v1/data_sources/{data_source_id}/query`. `database_id` is the old
+handle and is wrong for row operations. The user still sees a normal database;
+only the API handle changes.
+
 | Property | Type | Notes |
 |---|---|---|
 | Task | Title | |

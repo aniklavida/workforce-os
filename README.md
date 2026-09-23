@@ -35,6 +35,7 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 - `agents/` — assistant, advisor and specialist profiles.
 - `commands/` — capture, daily review, planning review and assignment flows.
 - `skills/` — Claude Code setup and operating skills.
+- `scripts/notion_roundtrip_proof.py` — a throwaway probe that measures Notion rate limits and formatting round-trip fidelity, feeding [`docs/NOTION_ROUNDTRIP.md`](docs/NOTION_ROUNDTRIP.md).
 - `.claude-plugin/` — Claude Code plugin metadata.
 
 ## Current installation status
