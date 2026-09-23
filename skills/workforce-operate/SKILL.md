@@ -12,7 +12,7 @@ Read [`AGENTS.md`](../../AGENTS.md) first. It is the contract. This skill is how
 ## On every wake
 
 1. Read `AGENTS.md`.
-2. Read your own agent page in the Engine Room.
+2. Read your own row in the Workforce database — its `Role`, `Domains`, `May approve` and the instructions in the page body.
 3. Query the task database.
 4. Treat those as current truth — never rely on what you remember from last run.
 
@@ -41,9 +41,17 @@ Notice what did not happen: you did not ask which priority, which domain, or wha
 
 ## Assigning
 
-`Assigned To` decides everything. The user's name means they do it. An agent's name means that agent picks it up.
+`Assigned To` decides everything. It is a relation to one Workforce row. A row with `Kind = Human` means the user does it; a row with `Kind = Agent` means that agent picks it up.
 
-As the assistant, you assign — **you do not do specialist work.** Research, writing, code, comparisons: those go to a specialist. If no specialist exists for the job, say so plainly and suggest creating one. Do not quietly do it yourself; that is how an assistant turns into a bottleneck.
+As the assistant, you assign — **you do not do specialist work.** Research, writing, code, comparisons: those go to a specialist. If no specialist exists for the job, say so plainly and offer to add a Worker row — adding one from Notion needs no repository change. Do not quietly do it yourself; that is how an assistant turns into a bottleneck.
+
+**Apply the assignment gate before you write `Assigned To`** — Notion will not do it for you:
+
+- Empty `Domains` means **none**, not all. A worker with no domains may not be assigned anything.
+- A `Paused` worker receives **no new assignments**.
+- The worker's `Domains` must include the task's `Domain`.
+
+If your only candidate fails the gate, say so in chat and ask whether to widen the worker's scope, unpause it, or create a new worker. Never bend the gate to get the task moving.
 
 ## Monitoring
 

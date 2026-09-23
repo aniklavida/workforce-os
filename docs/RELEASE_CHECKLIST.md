@@ -10,6 +10,8 @@
 
 - [ ] Fresh setup and repeated setup pass without duplication.
 - [ ] Migration preserves existing tasks and user-authored notes.
+- [ ] The Workforce database is created live with a description on every property, and a worker added directly in Notion is assignable with no repository change.
+- [ ] The select-to-relation migration carries every assigned task across, and the assignment gate holds (empty `Domains` means none, `Paused` receives no new assignments).
 - [ ] Multi-worker assignment, permissions and handoff work end to end.
 - [ ] The review protocol's checklist and silence behavior are verified against fixture data (scheduling and delivery are the connecting agent's own capability, not tested here).
 - [ ] Claude Code installation passes fresh-environment tests; the Codex `AGENTS.md` path is documented and tested where feasible.

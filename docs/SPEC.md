@@ -66,7 +66,7 @@ Logs          daily activity and periodic summaries
 
 ## Task contract
 
-The task database includes title, status, assigned worker, domain, priority, type, start/due dates, done condition, separate user and agent notes, and completion date. `Assigned To` should relate to the Workforce database so assignment resolves to a real profile rather than a hard-coded select option.
+The task database includes title, status, assigned worker, domain, priority, type, start/due dates, done condition, separate user and agent notes, and completion date. `Assigned To` is a relation to the Workforce database, so assignment resolves to a real profile rather than a hard-coded select option. A worker with empty `Domains` may work in no domain, and a `Paused` worker receives no new assignments; the Assistant applies that gate at assignment time.
 
 ## Worker profile
 
@@ -113,7 +113,7 @@ These are not "not yet built" — they are not part of this product. An agent's 
 
 ## Current implementation truth
 
-The repository currently contains the operating protocol, Claude Code plugin metadata, agent profiles, commands and Markdown skills. It does not yet contain clean-install verification, a demo, the relation-based Workforce migration, or a verified Codex/other-agent installation path.
+The repository currently contains the operating protocol, Claude Code plugin metadata, agent profiles, commands and Markdown skills. The relation-based Workforce schema — the Workforce database and the `Assigned To` relation — is specified in the setup skill and encoded in `scripts/workforce_schema.py`, with a documented migration from the old select. That schema has been exercised only locally (`--dry-run` and `--self-test`); it has not been created against a live Notion workspace in this environment. The repository does not yet contain clean-install verification, a demo, a live-migration proof, or a verified Codex/other-agent installation path.
 
 ## Outside v1.0
 
