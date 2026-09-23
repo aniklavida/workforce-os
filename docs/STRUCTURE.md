@@ -2,6 +2,13 @@
 
 For agents that are not Claude Code (planned, unverified): this is what Workforce OS looks like, so you can build or operate it yourself.
 
+> **API addressing.** The 2025-09-03 Notion API makes the **data source** the
+> primary abstraction. When you read or write rows through the API or MCP, you
+> address the task **`data_source_id`**, not the `database_id`. A row is created
+> with `parent.type = "data_source_id"`, and rows are read by querying
+> `/v1/data_sources/{data_source_id}/query`. "Database" below means the Notion
+> container the user sees; the agent's handle on it is the data source.
+
 ## One database
 
 Everything routes through a single task database. There is no second task list anywhere.
