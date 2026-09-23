@@ -156,6 +156,11 @@ has `Assigned To` as a select migrates in four steps, preserving rows:
 Never delete the legacy property before step 4. If a row cannot be matched,
 leave it on the legacy property and report it — do not invent a worker.
 
+This migration is implemented and tested in `scripts/workforce_migration.py`.
+Run `--dry-run` to preview the row-by-row diffs and unmatched values without
+touching data, or `--self-test` to verify byte-for-byte note preservation,
+no-op re-runs, and interruption recovery.
+
 ### Pages
 
 ```

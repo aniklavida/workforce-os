@@ -14,7 +14,7 @@ Make setup idempotent; add the Workforce database, relation-based assignment, pr
 
 **Done:** repeated setup creates no duplicates and migration preserves user data.
 
-**Status:** the Workforce database and the `Assigned To` relation are specified in `skills/workforce-setup` and encoded in `scripts/workforce_schema.py`; the select-to-relation migration is documented and the assignment gate (empty `Domains` means none, `Paused` receives no new assignments) is covered by local fixture checks. What remains before this step is done: create the structure against a live workspace, run the migration on real rows, and confirm repeated setup produces no duplicates. See [`ARCHITECTURE.md`](ARCHITECTURE.md#verification-status-of-the-workforce-schema) for what is verified and what is not.
+**Status:** the Workforce database and the `Assigned To` relation are specified in `skills/workforce-setup` and encoded in `scripts/workforce_schema.py`; the select-to-relation migration is implemented in `scripts/workforce_migration.py` and the assignment gate (empty `Domains` means none, `Paused` receives no new assignments) is covered by local fixture checks. What remains before this step is done: create the structure against a live workspace, run the migration on real rows, and confirm repeated setup produces no duplicates. See [`ARCHITECTURE.md`](ARCHITECTURE.md#verification-status-of-the-workforce-schema) for what is verified and what is not.
 
 ## 2. Operating protocol
 

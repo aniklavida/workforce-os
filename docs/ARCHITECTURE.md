@@ -189,6 +189,31 @@ export NOTION_PARENT_PAGE_ID=...        # the page Workforce OS lives under
 python3 scripts/workforce_setup.py --live
 ```
 
+### Verification status of select-to-relation migration
+
+The migration logic from legacy select-based `Assigned To` to the relation-based Workforce model is implemented and tested in `scripts/workforce_migration.py`.
+
+| Claim | How it was checked | Status |
+|---|---|---|
+| Only `Assigned To` changes on any task; `Notes` and `Agent Notes` preserved byte for byte | `scripts/workforce_migration.py --self-test` (Test 1), asserted row-by-row across fixture tasks | **Verified locally** |
+| Existing select options map to Workforce rows; human user mapped to `Kind = Human` and `Channel = None` | `--self-test` (Test 1), asserted worker rows in Workforce DB | **Verified locally** |
+| Unmatched values reported by name, never silently dropped, and never guessed at | `--self-test` (Test 1b), asserted task left untouched on legacy property and reported | **Verified locally** |
+| Re-running migration against an already-migrated workspace is a zero-change no-op | `--self-test` (Test 2), asserted 0 tasks migrated, 0 duplicate workers, 0 property diffs | **Verified locally** |
+| Resumption after mid-migration interruption reaches identical end state as uninterrupted run | `--self-test` (Test 3), asserted matching workers and task properties across interrupted vs control workspaces | **Verified locally** |
+| Pre-migration values logged for reversal and rollback restores original state | `--self-test` (Test 1), asserted rollback restores pre-migration properties | **Verified locally** |
+| Migration executed against a live Notion workspace | not run — no credential in this environment | **NOT YET EXECUTED** |
+
+Do not read the last row as a claim of tested behaviour. The one-command procedure to complete it is:
+
+```sh
+# Fallback REST path. The primary path is the agent's own Notion MCP/OAuth connection;
+# this script provides the honest executable check.
+export NOTION_TOKEN=...                 # never commit this
+export NOTION_PARENT_PAGE_ID=...        # the page Workforce OS lives under
+python3 scripts/workforce_migration.py --live \
+    --tasks-data-source-id <tasks_data_source_id>
+```
+
 ## Deliverables
 
 1. **Structure** — idempotent setup and migration for the user's Notion.
