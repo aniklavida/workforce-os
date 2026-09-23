@@ -338,6 +338,28 @@ The content boundary is implemented and tested in
 | Content claiming prior authorization cannot grant itself permission | `--self-test` (Test 3), asserted the external send stays blocked and the worker's `May approve` is unchanged | **Verified locally** |
 | Detection is deterministic pattern matching, not model-based | `--self-test` (Test 5), asserted identical input yields identical findings and every pattern is a compiled regex | **Verified locally** |
 
+### Verification status of handoff and multi-worker safety
+
+The handoff and multi-worker execution rules are implemented and enforced in `scripts/workforce_permission.py`.
+
+| Claim | How it was checked | Status |
+|---|---|---|
+| Two distinct workers operate the same workspace without silent ownership or Notes overwrite | `scripts/workforce_permission.py --self-test` (Test 9), asserted queue isolation, rejected cross-worker execution/reassignment, and blocked agent writes to Notes | **Verified locally** |
+| Every handoff carries a reason; handoff attempted without one is refused | `--self-test` (Test 10), asserted valid handoff preserves status and appends dated audit log, while empty or whitespace reason is refused | **Verified locally** |
+| Assistant role is refused from performing specialist execution work | `--self-test` (Test 11), asserted research/writing/code actions blocked for Assistant | **Verified locally** |
+| Advisor role is refused from triggering actions or maintaining fields | `--self-test` (Test 12), asserted destructive/external actions and field updates blocked for Advisor | **Verified locally** |
+| Specialist without May approve cannot mark task Done when approval required | `--self-test` (Test 13), asserted status stays In progress until approval granted or May approve is True | **Verified locally** |
+| Read-your-queue isolates worker tasks, respects In progress, and waits on future Start Date | `--self-test` (Test 14), asserted queue partitioning and future Start Date wait enforcement | **Verified locally** |
+| Note field separation invariant strictly blocks agent from writing to Notes | `--self-test` (Test 15), asserted invariant violation error on agent writing to Notes | **Verified locally** |
+| No lock or claim field exists; Assigned To relation provides single ownership | `--self-test` (Test 16), asserted absence of lock properties and single-property relation | **Verified locally** |
+| Multi-worker execution against live Notion workspace | not run — no credential in this environment | **NOT YET EXECUTED** |
+
+Do not read the last row as a claim of tested behaviour. The procedure to complete live verification is to supply NOTION_TOKEN and NOTION_PARENT_PAGE_ID and run:
+
+```sh
+python3 scripts/workforce_permission.py --live
+```
+
 ## Deliverables
 
 1. **Structure** — idempotent setup and migration for the user's Notion.

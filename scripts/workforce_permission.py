@@ -28,6 +28,19 @@ Additional locked guarantees:
   - Permission state is completely legible in Notion: read directly from
     properties (`Domains`, `May approve`, `Status`) and Domain page context
     declarations, never from a hidden configuration file.
+  - Handoff discipline: Handoff is a first-class event requiring a non-empty
+    reason recorded in Agent Notes, updating Assigned To, and preserving Status
+    unless intentionally changed. Handoffs without a reason are refused.
+  - Queue discipline: A worker acts only on its own queue (Assigned To matches
+    worker and Status != Done). A future Start Date requires waiting. An In progress
+    task requires reading Agent Notes first.
+  - Note field separation: Notes is strictly user-only; Agent Notes is strictly
+    agent-only. Neither writer may touch or clobber the other's field.
+  - Role separation: Assistant never executes specialist work; Advisor never
+    triggers actions, runs daily status, or maintains fields; Specialist never
+    marks work Done without required approval.
+  - No lock/claim field: Assigned To relation routes to exactly one worker by
+    design; no separate lock property exists.
 
 Usage:
   Dry run (previews permission checks and evaluations without network):
@@ -60,17 +73,25 @@ if SCRIPT_DIR not in sys.path:
 try:
     from workforce_schema import (
         DEFAULT_API_VERSION,
+        RELATION_TYPE,
+        ROLES,
         TASKS_ASSIGNED_TO_PROP,
         WORKFORCE_TITLE_PROP,
+        advisor_worker,
         agent_worker,
+        assistant_worker,
         assignment_blockers,
         can_assign,
         human_worker,
+        tasks_assigned_to_relation,
+        workforce_database_properties,
     )
 except ImportError:
     DEFAULT_API_VERSION = "2025-09-03"
     WORKFORCE_TITLE_PROP = "Worker"
     TASKS_ASSIGNED_TO_PROP = "Assigned To"
+    RELATION_TYPE = "single_property"
+    ROLES = ["Assistant", "Advisor", "Specialist"]
 
     def assignment_blockers(worker: dict, task_domain: str) -> list[str]:
         blockers = []
@@ -86,26 +107,54 @@ except ImportError:
     def can_assign(worker: dict, task_domain: str) -> bool:
         return not assignment_blockers(worker, task_domain)
 
-    def human_worker(name: str, domains: list[str] | None = None) -> dict:
+    def human_worker(name: str, domains: list[str] | None = None, role: str = "Specialist") -> dict:
         return {
             "worker": name,
             "kind": "Human",
-            "role": "Specialist",
+            "role": role,
             "channel": "None",
             "domains": domains or [],
             "may_approve": False,
             "status": "Active",
         }
 
-    def agent_worker(name: str, domains: list[str], status: str = "Active") -> dict:
+    def agent_worker(name: str, domains: list[str], status: str = "Active", role: str = "Specialist") -> dict:
         return {
             "worker": name,
             "kind": "Agent",
-            "role": "Specialist",
+            "role": role,
             "channel": "Claude Code",
             "domains": list(domains),
             "may_approve": False,
             "status": status,
+        }
+
+    def assistant_worker(name: str, domains: list[str] | None = None, status: str = "Active") -> dict:
+        return agent_worker(name, domains or [], status=status, role="Assistant")
+
+    def advisor_worker(name: str, domains: list[str] | None = None, status: str = "Active") -> dict:
+        return agent_worker(name, domains or [], status=status, role="Advisor")
+
+    def workforce_database_properties() -> dict:
+        return {
+            WORKFORCE_TITLE_PROP: {"title": {}},
+            "Kind": {"select": {}},
+            "Role": {"select": {}},
+            "Channel": {"select": {}},
+            "Domains": {"multi_select": {}},
+            "May approve": {"checkbox": {}},
+            "Capabilities": {"rich_text": {}},
+            "Status": {"select": {}},
+        }
+
+    def tasks_assigned_to_relation(workforce_data_source_id: str) -> dict:
+        return {
+            TASKS_ASSIGNED_TO_PROP: {
+                "relation": {
+                    "data_source_id": workforce_data_source_id,
+                    "type": RELATION_TYPE,
+                }
+            }
         }
 
 
@@ -513,6 +562,602 @@ def inspect_worker_notion_permissions(worker: dict) -> dict:
 
 
 # --------------------------------------------------------------------------
+# 8. Note Field Separation Invariant & Audit Trail
+# --------------------------------------------------------------------------
+
+def append_agent_note(
+    existing_notes: str | None,
+    worker_name: str,
+    message: str,
+    timestamp: str | None = None,
+) -> str:
+    """Append a dated audit log entry to Agent Notes, preserving prior content byte-for-byte."""
+    if timestamp is None:
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+    entry = f"[{timestamp}] {worker_name}: {message.strip()}"
+    if not existing_notes or not existing_notes.strip():
+        return entry
+    return f"{existing_notes.strip()}\n{entry}"
+
+
+def validate_field_write_permission(
+    writer_role_or_kind: str,
+    field_name: str,
+    writer_name: str = "",
+) -> tuple[bool, str]:
+    """Enforce the note field separation invariant.
+
+    Notes: User only. Agents never write here.
+    Agent Notes: Agent only. Users write in Notes.
+    """
+    clean_role = (writer_role_or_kind or "").strip()
+    clean_field = (field_name or "").strip()
+
+    is_agent = clean_role.lower() in ("agent", "assistant", "advisor", "specialist") or clean_role.lower().endswith("agent")
+    is_user = clean_role.lower() in ("user", "human_user")
+
+    if clean_field == "Notes" and is_agent:
+        return (
+            False,
+            f"Invariant violation: Field 'Notes' is user-only. Worker '{writer_name}' ({clean_role}) is forbidden from writing to 'Notes'.",
+        )
+
+    if clean_field == "Agent Notes" and is_user:
+        return (
+            False,
+            f"Invariant violation: Field 'Agent Notes' is agent-only. User writes in 'Notes', not 'Agent Notes'.",
+        )
+
+    return True, f"Write to field '{clean_field}' permitted for '{clean_role}'."
+
+
+def update_task_field(
+    task: dict,
+    field_name: str,
+    new_value: Any,
+    writer: dict | str,
+    is_user: bool = False,
+    timestamp: str | None = None,
+) -> tuple[bool, str, dict]:
+    """Safely update a task field, enforcing field contract invariants.
+
+    - Blocks agents from touching 'Notes'.
+    - Blocks users from touching 'Agent Notes'.
+    - Appends to 'Agent Notes' with date, never overwriting.
+    - Blocks direct changes to 'Assigned To' by non-Assistant agents without handoff.
+    """
+    task_title = task.get("title") or task.get("task") or "Untitled task"
+    if is_user:
+        writer_name = "User"
+        writer_role = "User"
+    elif isinstance(writer, dict):
+        writer_name = writer.get("worker") or writer.get("name") or "Unknown"
+        writer_role = writer.get("role") or writer.get("kind") or "Agent"
+    else:
+        writer_name = str(writer)
+        writer_role = "Specialist"
+
+    allowed, reason = validate_field_write_permission(writer_role, field_name, writer_name)
+    if not allowed:
+        return False, reason, task
+
+    if not is_user:
+        if field_name == "Agent Notes":
+            task["Agent Notes"] = append_agent_note(
+                task.get("Agent Notes"), writer_name, str(new_value), timestamp=timestamp
+            )
+            return True, f"Appended agent note for '{writer_name}' on task '{task_title}'.", task
+        if field_name == "Assigned To" and writer_role != "Assistant":
+            return (
+                False,
+                f"Direct reassignment forbidden: Worker '{writer_name}' ({writer_role}) cannot directly edit 'Assigned To'. Use handoff_task with a recorded reason.",
+                task,
+            )
+
+    task[field_name] = new_value
+    return True, f"Updated '{field_name}' on task '{task_title}'.", task
+
+
+# --------------------------------------------------------------------------
+# 9. Role Separation Enforcement
+# --------------------------------------------------------------------------
+
+SPECIALIST_ACTION_TYPES = {
+    "research",
+    "writing",
+    "code",
+    "coding",
+    "drafting",
+    "implementation",
+    "specialist_work",
+    "execute_task",
+}
+
+ADVISOR_FORBIDDEN_ACTIONS = {
+    "trigger_action",
+    "daily_status",
+    "run_daily_status",
+    "maintain_fields",
+    "assign_task",
+    "handoff_task",
+    "execute_task",
+    "delete_page",
+    "delete_database",
+    "delete_task",
+    "delete",
+    "send_external_message",
+    "send_message",
+    "publish_post",
+    "publish_release",
+    "publish",
+    "send_payment",
+    "charge_card",
+    "pay",
+    "update_task_status",
+}
+
+
+def validate_role_action(
+    worker: dict,
+    action_type: str,
+    details: dict | None = None,
+) -> tuple[bool, str]:
+    """Enforce role separation across Assistant, Advisor, and Specialist roles.
+
+    - Assistant never does specialist work (research/writing/code).
+    - Advisor never triggers actions, runs daily status, or maintains fields.
+    - Specialist never marks work Done when approval was required and not granted
+      (unless May approve is True).
+    """
+    worker_name = worker.get("worker") or worker.get("name") or "Unknown worker"
+    role = worker.get("role", "Specialist")
+    clean_action = action_type.strip().lower()
+
+    if role == "Assistant":
+        if clean_action in SPECIALIST_ACTION_TYPES:
+            return (
+                False,
+                f"Role violation: Assistant worker '{worker_name}' cannot perform specialist work ('{action_type}'). Assistant manages, organizes, and assigns; it never performs execution work.",
+            )
+
+    elif role == "Advisor":
+        if clean_action in ADVISOR_FORBIDDEN_ACTIONS or is_action_gated(clean_action):
+            return (
+                False,
+                f"Role violation: Advisor worker '{worker_name}' cannot trigger actions, run daily status, or maintain fields ('{action_type}'). Advisor advises and researches; never acts.",
+            )
+
+    elif role == "Specialist":
+        if clean_action in ("run_daily_status", "daily_status"):
+            return (
+                False,
+                f"Role violation: Specialist worker '{worker_name}' cannot run daily status. Daily status is managed by Assistant.",
+            )
+        if clean_action in ("mark_done", "complete_task"):
+            det = details or {}
+            requires_approval = bool(det.get("requires_approval", False))
+            approval_granted = bool(det.get("approval_granted", False))
+            may_approve = bool(worker.get("may_approve", False))
+            if requires_approval and not approval_granted and not may_approve:
+                return (
+                    False,
+                    f"Role violation: Specialist worker '{worker_name}' cannot mark task Done: approval was required and not yet granted, and 'May approve' is False.",
+                )
+
+    return True, f"Action '{action_type}' permitted for worker '{worker_name}' ({role})."
+
+
+# --------------------------------------------------------------------------
+# 10. Handoff Protocol & Authority Gate
+# --------------------------------------------------------------------------
+
+@dataclass
+class HandoffRecord:
+    task_title: str
+    from_worker: str
+    to_worker: str
+    reason: str
+    timestamp: str
+    previous_status: str
+    resulting_status: str
+
+
+def handoff_task(
+    task: dict,
+    from_worker: dict,
+    to_worker: dict,
+    reason: str,
+    new_status: str | None = None,
+    timestamp: str | None = None,
+    audit_log: list[dict] | None = None,
+) -> tuple[bool, str, dict]:
+    """Execute a first-class handoff event between workers.
+
+    Enforces:
+      1. Mandatory non-empty reason recorded in Agent Notes.
+      2. from_worker must be current assignee or Assistant.
+      3. to_worker must pass assignment gate (Active, non-empty Domains covering task Domain).
+      4. Preserves task Status unless new_status is explicitly provided.
+      5. User's Notes is strictly untouched.
+      6. Appends dated handoff audit record to Agent Notes.
+      7. Updates Assigned To relation.
+    """
+    clean_reason = str(reason).strip() if reason is not None else ""
+    if not clean_reason:
+        return (
+            False,
+            "Handoff refused: A handoff must carry a non-empty reason recorded in Agent Notes.",
+            task,
+        )
+
+    task_title = task.get("title") or task.get("task") or "Untitled task"
+    task_domain = task.get("domain") or task.get("Domain") or "Unassigned"
+    from_name = from_worker.get("worker") or from_worker.get("name") or "Unknown worker"
+    to_name = to_worker.get("worker") or to_worker.get("name") or "Unknown worker"
+    from_role = from_worker.get("role", "Specialist")
+
+    # Authority check
+    current_assignee = task.get("Assigned To") or task.get("assigned_to")
+    if current_assignee and from_name != current_assignee and from_role != "Assistant":
+        return (
+            False,
+            f"Handoff refused: Worker '{from_name}' ({from_role}) cannot hand off task '{task_title}' assigned to '{current_assignee}'. Only the current assignee or Assistant may hand off a task.",
+            task,
+        )
+
+    if from_role == "Advisor":
+        return (
+            False,
+            f"Role violation: Advisor worker '{from_name}' cannot hand off tasks. Advisor advises; never acts or maintains fields.",
+            task,
+        )
+
+    # Destination assignment gate check
+    blockers = assignment_blockers(to_worker, task_domain)
+    if blockers:
+        detail = "; ".join(blockers)
+        return (
+            False,
+            f"Handoff refused: Destination worker '{to_name}' cannot receive assignment for task '{task_title}' ({detail}).",
+            task,
+        )
+
+    # Status handling
+    current_status = task.get("Status", "Planned")
+    if new_status is not None:
+        if new_status not in ("Planned", "In progress", "Done"):
+            return (
+                False,
+                f"Handoff refused: Invalid status '{new_status}'. Status must be 'Planned', 'In progress', or 'Done'.",
+                task,
+            )
+        target_status = new_status
+    else:
+        target_status = current_status
+
+    if timestamp is None:
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+    audit_msg = f"Handoff from {from_name} to {to_name}: {clean_reason}"
+    task["Agent Notes"] = append_agent_note(
+        task.get("Agent Notes"), from_name, audit_msg, timestamp=timestamp
+    )
+    task["Assigned To"] = to_name
+    task["Status"] = target_status
+
+    record = HandoffRecord(
+        task_title=task_title,
+        from_worker=from_name,
+        to_worker=to_name,
+        reason=clean_reason,
+        timestamp=timestamp,
+        previous_status=current_status,
+        resulting_status=target_status,
+    )
+    if audit_log is not None:
+        audit_log.append(asdict(record))
+
+    return (
+        True,
+        f"Handoff accepted: Task '{task_title}' reassigned from '{from_name}' to '{to_name}'. Reason: {clean_reason}",
+        task,
+    )
+
+
+# --------------------------------------------------------------------------
+# 11. Queue Discipline & Execution Gate
+# --------------------------------------------------------------------------
+
+def get_worker_queue(
+    worker: dict,
+    tasks: list[dict],
+    current_date: str | datetime | None = None,
+) -> dict[str, list[dict]]:
+    """Filter tasks to produce a worker's queue under AGENTS.md section 4.
+
+    A worker's queue is tasks whose Assigned To relation includes its own
+    Workforce row AND Status != Done.
+
+    Returns a dictionary partitioned into:
+      - 'all_assigned': all active non-done tasks assigned to this worker
+      - 'ready': tasks with Start Date <= current_date (or no Start Date)
+      - 'waiting': tasks with future Start Date > current_date
+      - 'in_progress': tasks currently In progress
+    """
+    worker_name = worker.get("worker") or worker.get("name") or ""
+    if current_date is None:
+        cur_date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    elif isinstance(current_date, datetime):
+        cur_date_str = current_date.strftime("%Y-%m-%d")
+    else:
+        cur_date_str = str(current_date)
+
+    assigned_tasks: list[dict] = []
+    ready_tasks: list[dict] = []
+    waiting_tasks: list[dict] = []
+    in_progress_tasks: list[dict] = []
+
+    for t in tasks:
+        assignee = t.get("Assigned To") or t.get("assigned_to")
+        if assignee != worker_name:
+            continue
+        status = t.get("Status") or t.get("status")
+        if status == "Done":
+            continue
+
+        assigned_tasks.append(t)
+        start_date = t.get("Start Date") or t.get("start_date")
+        if start_date and str(start_date) > cur_date_str:
+            waiting_tasks.append(t)
+        else:
+            ready_tasks.append(t)
+
+        if status == "In progress":
+            in_progress_tasks.append(t)
+
+    return {
+        "all_assigned": assigned_tasks,
+        "ready": ready_tasks,
+        "waiting": waiting_tasks,
+        "in_progress": in_progress_tasks,
+    }
+
+
+def start_task_execution(
+    worker: dict,
+    task: dict,
+    current_date: str | datetime | None = None,
+    timestamp: str | None = None,
+) -> tuple[bool, str, dict]:
+    """Protocol check & action: start execution on an assigned task.
+
+    Enforces:
+      1. Assigned To matches worker.
+      2. Status is not Done.
+      3. Future Start Date blocks starting; worker must wait.
+      4. Worker must satisfy domain scope (can_act_on_task).
+      5. Worker role separation check (Advisor cannot execute tasks; Assistant cannot do specialist work).
+      6. If already In progress, checks Agent Notes and preserves existing notes.
+      7. Sets Status = 'In progress' and appends dated audit line to Agent Notes.
+    """
+    worker_name = worker.get("worker") or worker.get("name") or "Unknown worker"
+    task_title = task.get("title") or task.get("task") or "Untitled task"
+    current_assignee = task.get("Assigned To") or task.get("assigned_to")
+
+    # 1. Assignment check
+    if current_assignee != worker_name:
+        return (
+            False,
+            f"Queue violation: Worker '{worker_name}' cannot act on task '{task_title}' assigned to '{current_assignee}'.",
+            task,
+        )
+
+    # 2. Status != Done check
+    if task.get("Status") == "Done":
+        return (
+            False,
+            f"Queue violation: Task '{task_title}' is already Done.",
+            task,
+        )
+
+    # 3. Future start date check
+    if current_date is None:
+        cur_date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    elif isinstance(current_date, datetime):
+        cur_date_str = current_date.strftime("%Y-%m-%d")
+    else:
+        cur_date_str = str(current_date)
+
+    start_date = task.get("Start Date") or task.get("start_date")
+    if start_date and str(start_date) > cur_date_str:
+        return (
+            False,
+            f"Queue violation: Task '{task_title}' has future Start Date '{start_date}': worker must wait until start date.",
+            task,
+        )
+
+    # 4. Domain scope check
+    can_act, act_reason = can_act_on_task(worker, task)
+    if not can_act:
+        return False, f"Domain scope blocked: {act_reason}", task
+
+    # 5. Role separation check
+    role_ok, role_reason = validate_role_action(worker, "execute_task")
+    if not role_ok:
+        return False, role_reason, task
+
+    # 6. Status transition & audit trail
+    if task.get("Status") == "In progress":
+        audit_msg = "Continuing execution on in-progress task after checking Agent Notes."
+    else:
+        task["Status"] = "In progress"
+        audit_msg = "Started work on task."
+
+    task["Agent Notes"] = append_agent_note(
+        task.get("Agent Notes"), worker_name, audit_msg, timestamp=timestamp
+    )
+    return (
+        True,
+        f"Worker '{worker_name}' successfully active on task '{task_title}' (Status: 'In progress').",
+        task,
+    )
+
+
+def complete_task_execution(
+    worker: dict,
+    task: dict,
+    requires_approval: bool = False,
+    approval_granted: bool = False,
+    summary: str = "",
+    timestamp: str | None = None,
+) -> tuple[bool, str, dict]:
+    """Protocol check & action: complete an assigned task.
+
+    Enforces:
+      1. Worker must be Assigned To task.
+      2. Specialist role cannot mark Done if approval was required and not granted
+         (unless May approve is True).
+      3. Sets Status = 'Done'.
+      4. Sets Completion Date.
+      5. Appends dated audit line to Agent Notes.
+    """
+    worker_name = worker.get("worker") or worker.get("name") or "Unknown worker"
+    task_title = task.get("title") or task.get("task") or "Untitled task"
+    current_assignee = task.get("Assigned To") or task.get("assigned_to")
+
+    if current_assignee != worker_name:
+        return (
+            False,
+            f"Queue violation: Worker '{worker_name}' cannot complete task '{task_title}' assigned to '{current_assignee}'.",
+            task,
+        )
+
+    # Role separation and approval gate
+    role_ok, role_reason = validate_role_action(
+        worker,
+        "complete_task",
+        details={"requires_approval": requires_approval, "approval_granted": approval_granted},
+    )
+    if not role_ok:
+        return False, role_reason, task
+
+    task["Status"] = "Done"
+    task["Completion Date"] = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    msg = f"Completed task. {summary}".strip()
+    task["Agent Notes"] = append_agent_note(
+        task.get("Agent Notes"), worker_name, msg, timestamp=timestamp
+    )
+    return True, f"Task '{task_title}' completed by '{worker_name}'.", task
+
+
+# --------------------------------------------------------------------------
+# 12. Simulated Multi-Worker Workspace
+# --------------------------------------------------------------------------
+
+class SimulatedMultiWorkerWorkspace:
+    """In-memory simulation of a multi-worker workspace.
+
+    Proves two workers operate one Workforce OS workspace without colliding,
+    maintaining queue isolation, handoff reasons, and note separation invariants.
+    """
+
+    def __init__(self, workers: list[dict], tasks: list[dict]):
+        self.workers: dict[str, dict] = {
+            (w.get("worker") or w.get("name")): deepcopy(w) for w in workers
+        }
+        self.tasks: dict[str, dict] = {
+            (t.get("title") or t.get("task")): deepcopy(t) for t in tasks
+        }
+        self.audit_log: list[dict] = []
+        self.event_log: list[str] = []
+
+    def get_worker(self, name: str) -> dict:
+        if name not in self.workers:
+            raise KeyError(f"Worker '{name}' not found in workspace.")
+        return self.workers[name]
+
+    def get_task(self, title: str) -> dict:
+        if title not in self.tasks:
+            raise KeyError(f"Task '{title}' not found in workspace.")
+        return self.tasks[title]
+
+    def get_queue(self, worker_name: str, current_date: str | None = None) -> dict[str, list[dict]]:
+        worker = self.get_worker(worker_name)
+        return get_worker_queue(worker, list(self.tasks.values()), current_date=current_date)
+
+    def start_task(self, worker_name: str, task_title: str, current_date: str | None = None) -> tuple[bool, str]:
+        worker = self.get_worker(worker_name)
+        task = self.get_task(task_title)
+        ok, reason, updated_task = start_task_execution(worker, task, current_date=current_date)
+        if ok:
+            self.tasks[task_title] = updated_task
+            self.event_log.append(f"{worker_name} started '{task_title}'")
+        return ok, reason
+
+    def complete_task(
+        self,
+        worker_name: str,
+        task_title: str,
+        requires_approval: bool = False,
+        approval_granted: bool = False,
+        summary: str = "",
+    ) -> tuple[bool, str]:
+        worker = self.get_worker(worker_name)
+        task = self.get_task(task_title)
+        ok, reason, updated_task = complete_task_execution(
+            worker, task, requires_approval=requires_approval, approval_granted=approval_granted, summary=summary
+        )
+        if ok:
+            self.tasks[task_title] = updated_task
+            self.event_log.append(f"{worker_name} completed '{task_title}'")
+        return ok, reason
+
+    def handoff(
+        self,
+        task_title: str,
+        from_worker_name: str,
+        to_worker_name: str,
+        reason: str,
+        new_status: str | None = None,
+    ) -> tuple[bool, str]:
+        from_w = self.get_worker(from_worker_name)
+        to_w = self.get_worker(to_worker_name)
+        task = self.get_task(task_title)
+        ok, msg, updated_task = handoff_task(
+            task, from_w, to_w, reason=reason, new_status=new_status, audit_log=self.audit_log
+        )
+        if ok:
+            self.tasks[task_title] = updated_task
+            self.event_log.append(f"Handoff '{task_title}' {from_worker_name} -> {to_worker_name}")
+        return ok, msg
+
+    def update_notes_by_user(self, task_title: str, new_notes: str) -> tuple[bool, str]:
+        task = self.get_task(task_title)
+        ok, msg, updated_task = update_task_field(task, "Notes", new_notes, "User", is_user=True)
+        if ok:
+            self.tasks[task_title] = updated_task
+            self.event_log.append(f"User updated Notes on '{task_title}'")
+        return ok, msg
+
+    def update_notes_by_agent(self, worker_name: str, task_title: str, new_notes: str) -> tuple[bool, str]:
+        worker = self.get_worker(worker_name)
+        task = self.get_task(task_title)
+        ok, msg, updated_task = update_task_field(task, "Notes", new_notes, worker, is_user=False)
+        if ok:
+            self.tasks[task_title] = updated_task
+            self.event_log.append(f"{worker_name} updated Notes on '{task_title}'")
+        return ok, msg
+
+    def attempt_silent_reassignment(self, worker_name: str, task_title: str, new_assignee: str) -> tuple[bool, str]:
+        worker = self.get_worker(worker_name)
+        task = self.get_task(task_title)
+        ok, msg, updated_task = update_task_field(task, "Assigned To", new_assignee, worker, is_user=False)
+        if ok:
+            self.tasks[task_title] = updated_task
+        return ok, msg
+
+
+# --------------------------------------------------------------------------
 # Self-Test Suite (Proves all 3 Done-When Requirements + Guarantees)
 # --------------------------------------------------------------------------
 
@@ -727,10 +1372,398 @@ def test_permission_state_legible_directly_from_notion_properties() -> bool:
     return True
 
 
+def test_two_workers_concurrent_workspace_safety_no_overwrite() -> bool:
+    """Done-when 1: Two distinct fixture workers operate the same workspace and neither
+    silently overwrites the other's Assigned To ownership or the user's Notes field."""
+    w1 = agent_worker("WriterAlpha", ["Writing"], role="Specialist")
+    w2 = agent_worker("ResearcherBeta", ["Research"], role="Specialist")
+    tasks = [
+        {
+            "title": "Article Draft",
+            "domain": "Writing",
+            "Assigned To": "WriterAlpha",
+            "Status": "Planned",
+            "Notes": "USER CONFIDENTIAL: Do not alter core thesis.",
+            "Agent Notes": "Brief received.",
+        },
+        {
+            "title": "Market Analysis",
+            "domain": "Research",
+            "Assigned To": "ResearcherBeta",
+            "Status": "Planned",
+            "Notes": "USER INSTRUCTION: Source citations required.",
+            "Agent Notes": "Setting up query plan.",
+        },
+    ]
+
+    ws = SimulatedMultiWorkerWorkspace([w1, w2], tasks)
+
+    # 1. Queue isolation: neither sees the other's task
+    q1 = ws.get_queue("WriterAlpha")
+    q2 = ws.get_queue("ResearcherBeta")
+    assert [t["title"] for t in q1["all_assigned"]] == ["Article Draft"]
+    assert [t["title"] for t in q2["all_assigned"]] == ["Market Analysis"]
+
+    # 2. Worker 2 cannot claim or start Worker 1's task
+    blocked_start, reason_start = ws.start_task("ResearcherBeta", "Article Draft")
+    assert not blocked_start, "Worker 2 must not be able to act on Worker 1's task"
+    assert "Queue violation" in reason_start
+    assert "WriterAlpha" in reason_start
+
+    # 3. Worker 2 cannot silently reassign Worker 1's task
+    blocked_reassign, reason_reassign = ws.attempt_silent_reassignment(
+        "ResearcherBeta", "Article Draft", "ResearcherBeta"
+    )
+    assert not blocked_reassign, "Worker 2 must not silently reassign Worker 1's task"
+    assert "Direct reassignment forbidden" in reason_reassign
+
+    # Task ownership is still WriterAlpha
+    assert ws.get_task("Article Draft")["Assigned To"] == "WriterAlpha"
+
+    # 4. Worker 1 cannot overwrite user's Notes field
+    blocked_note1, reason_note1 = ws.update_notes_by_agent(
+        "WriterAlpha", "Article Draft", "Agent corrupted user notes"
+    )
+    assert not blocked_note1, "Agent must not be permitted to write to user Notes"
+    assert "Invariant violation" in reason_note1
+    assert "user-only" in reason_note1
+    assert ws.get_task("Article Draft")["Notes"] == "USER CONFIDENTIAL: Do not alter core thesis."
+
+    # 5. Worker 2 cannot overwrite user's Notes field on Task 2
+    blocked_note2, reason_note2 = ws.update_notes_by_agent(
+        "ResearcherBeta", "Market Analysis", "Agent corrupted user notes 2"
+    )
+    assert not blocked_note2
+    assert "Invariant violation" in reason_note2
+    assert ws.get_task("Market Analysis")["Notes"] == "USER INSTRUCTION: Source citations required."
+
+    # 6. Both workers execute their own work legitimately
+    ok_w1_start, _ = ws.start_task("WriterAlpha", "Article Draft")
+    assert ok_w1_start
+    assert ws.get_task("Article Draft")["Status"] == "In progress"
+
+    ok_w2_start, _ = ws.start_task("ResearcherBeta", "Market Analysis")
+    assert ok_w2_start
+    assert ws.get_task("Market Analysis")["Status"] == "In progress"
+
+    # 7. Worker 1 completes work legitimately
+    ok_w1_done, _ = ws.complete_task("WriterAlpha", "Article Draft", summary="Draft finished.")
+    assert ok_w1_done
+    assert ws.get_task("Article Draft")["Status"] == "Done"
+
+    # 8. User can update their own Notes safely
+    ok_user_note, _ = ws.update_notes_by_user("Article Draft", "USER UPDATE: Thesis approved.")
+    assert ok_user_note
+    assert ws.get_task("Article Draft")["Notes"] == "USER UPDATE: Thesis approved."
+
+    # 9. Verify ownership and notes integrity survived completely
+    assert ws.get_task("Article Draft")["Assigned To"] == "WriterAlpha"
+    assert ws.get_task("Market Analysis")["Assigned To"] == "ResearcherBeta"
+    assert "Brief received." in ws.get_task("Article Draft")["Agent Notes"]
+    assert "Started work on task." in ws.get_task("Article Draft")["Agent Notes"]
+    assert "Completed task. Draft finished." in ws.get_task("Article Draft")["Agent Notes"]
+    return True
+
+
+def test_handoff_requires_reason_and_refuses_empty_reason() -> bool:
+    """Done-when 2: Every handoff carries a reason; a handoff attempted without one is refused."""
+    w1 = agent_worker("WriterAlpha", ["Writing"], role="Specialist")
+    w2 = agent_worker("EditorBeta", ["Writing"], role="Specialist")
+    w_out_of_scope = agent_worker("AccountantGamma", ["Finance"], role="Specialist")
+    w_paused = agent_worker("PausedDelta", ["Writing"], status="Paused", role="Specialist")
+
+    task = {
+        "title": "Press Release Draft",
+        "domain": "Writing",
+        "Assigned To": "WriterAlpha",
+        "Status": "In progress",
+        "Notes": "USER NOTE: Coordinate with comms team.",
+        "Agent Notes": "First draft written.",
+    }
+
+    # Case A: Valid handoff with reason
+    ok_handoff, reason_msg, updated_task = handoff_task(
+        task,
+        w1,
+        w2,
+        reason="First draft written; handing off to EditorBeta for final polishing and tone check.",
+    )
+    assert ok_handoff, f"Valid handoff should succeed: {reason_msg}"
+    assert updated_task["Assigned To"] == "EditorBeta"
+    assert updated_task["Status"] == "In progress", "Status should be preserved unless explicitly changed"
+    assert updated_task["Notes"] == "USER NOTE: Coordinate with comms team.", "User notes must be untouched"
+    assert "Handoff from WriterAlpha to EditorBeta" in updated_task["Agent Notes"]
+    assert "final polishing and tone check" in updated_task["Agent Notes"]
+
+    # Case B: Refusal of empty reason
+    task_curr = deepcopy(updated_task)
+    ok_empty, empty_msg, _ = handoff_task(task_curr, w2, w1, reason="")
+    assert not ok_empty, "Handoff without reason must be refused"
+    assert "Handoff refused: A handoff must carry a non-empty reason" in empty_msg
+    assert task_curr["Assigned To"] == "EditorBeta", "Assignee must remain unchanged"
+
+    # Case C: Refusal of whitespace-only reason
+    ok_spaces, spaces_msg, _ = handoff_task(task_curr, w2, w1, reason="   \t\n  ")
+    assert not ok_spaces, "Handoff with whitespace-only reason must be refused"
+    assert "Handoff refused: A handoff must carry a non-empty reason" in spaces_msg
+    assert task_curr["Assigned To"] == "EditorBeta"
+
+    # Case D: Refusal of handoff to out-of-scope worker
+    ok_oos, oos_msg, _ = handoff_task(
+        task_curr, w2, w_out_of_scope, reason="Needs review by accountant"
+    )
+    assert not ok_oos, "Handoff to worker without matching domain must be refused"
+    assert "domain 'Writing' is not in worker Domains ['Finance']" in oos_msg
+    assert task_curr["Assigned To"] == "EditorBeta"
+
+    # Case E: Refusal of handoff to paused worker
+    ok_paused, paused_msg, _ = handoff_task(
+        task_curr, w2, w_paused, reason="Delegating to paused colleague"
+    )
+    assert not ok_paused, "Handoff to paused worker must be refused"
+    assert "worker status is 'Paused', not 'Active'" in paused_msg
+    assert task_curr["Assigned To"] == "EditorBeta"
+
+    # Case F: Refusal of handoff by unauthorized worker
+    unauthorized_worker = agent_worker("Outsider", ["Writing"], role="Specialist")
+    ok_unauth, unauth_msg, _ = handoff_task(
+        task_curr, unauthorized_worker, w1, reason="I want to reassign this"
+    )
+    assert not ok_unauth, "Unauthorized worker cannot hand off someone else's task"
+    assert "Only the current assignee or Assistant may hand off" in unauth_msg
+    return True
+
+
+def test_role_separation_assistant_refuses_specialist_work() -> bool:
+    """Done-when 3a: Assistant worker is refused from performing specialist execution work."""
+    assistant = assistant_worker("GeneralAssistant", ["Writing", "Research"])
+
+    # Specialist execution actions must be refused
+    for specialist_action in ["writing", "research", "code", "coding", "drafting", "implementation", "specialist_work"]:
+        allowed, reason = validate_role_action(assistant, specialist_action)
+        assert not allowed, f"Assistant must not perform specialist work '{specialist_action}'"
+        assert "Role violation" in reason
+        assert "GeneralAssistant" in reason
+        assert "cannot perform specialist work" in reason
+        assert "Assistant manages, organizes, and assigns; it never performs execution work." in reason
+
+    # Assistant management and coordination actions must be permitted
+    for assistant_action in ["assign_task", "organize", "schedule", "daily_status", "summarize", "monitor"]:
+        allowed, reason = validate_role_action(assistant, assistant_action)
+        assert allowed, f"Assistant must be permitted to perform '{assistant_action}': {reason}"
+    return True
+
+
+def test_role_separation_advisor_refuses_actions_and_field_maintenance() -> bool:
+    """Done-when 3b: Advisor worker is refused from triggering actions, daily status, or maintaining fields."""
+    advisor = advisor_worker("ChiefAdvisor", ["Strategy", "Research"])
+
+    # Advisor must not trigger actions, run daily status, or maintain fields
+    forbidden_actions = [
+        "trigger_action",
+        "daily_status",
+        "run_daily_status",
+        "maintain_fields",
+        "delete_page",
+        "send_external_message",
+        "send_payment",
+        "assign_task",
+        "execute_task",
+    ]
+    for action in forbidden_actions:
+        allowed, reason = validate_role_action(advisor, action)
+        assert not allowed, f"Advisor must not perform '{action}'"
+        assert "Role violation" in reason
+        assert "ChiefAdvisor" in reason
+        assert "cannot trigger actions, run daily status, or maintain fields" in reason
+        assert "Advisor advises and researches; never acts." in reason
+
+    # Advisor advice and research reading must be permitted
+    for advisor_action in ["advise", "research_observation", "surface_insight", "read_goals"]:
+        allowed, reason = validate_role_action(advisor, advisor_action)
+        assert allowed, f"Advisor should be permitted to '{advisor_action}': {reason}"
+    return True
+
+
+def test_role_separation_specialist_refuses_done_without_required_approval() -> bool:
+    """Done-when 3c: Specialist cannot mark task Done when approval was required and not yet granted."""
+    specialist = agent_worker("ContentSpecialist", ["Publishing"], role="Specialist")
+    task = {
+        "title": "Publish Release Notes",
+        "domain": "Publishing",
+        "Assigned To": "ContentSpecialist",
+        "Status": "In progress",
+        "Notes": "USER: Must be reviewed before publishing.",
+        "Agent Notes": "Draft ready.",
+    }
+
+    # Case A: Approval required, approval_granted = False, May approve = False -> REFUSED
+    ok_done, reason_done, updated_task = complete_task_execution(
+        specialist, task, requires_approval=True, approval_granted=False, summary="Publishing live"
+    )
+    assert not ok_done, "Specialist must not mark Done without required approval"
+    assert "Role violation" in reason_done
+    assert "ContentSpecialist" in reason_done
+    assert "cannot mark task Done: approval was required and not yet granted" in reason_done
+    assert "May approve' is False" in reason_done
+    assert updated_task["Status"] == "In progress", "Status must remain In progress"
+
+    # Case B: Approval granted = True -> ALLOWED
+    ok_approved, reason_approved, approved_task = complete_task_execution(
+        specialist, task, requires_approval=True, approval_granted=True, summary="Published with user approval."
+    )
+    assert ok_approved, f"Completion should succeed when approval granted: {reason_approved}"
+    assert approved_task["Status"] == "Done"
+    assert approved_task["Completion Date"] == datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    assert "Published with user approval." in approved_task["Agent Notes"]
+
+    # Case C: Worker with May approve = True can complete directly even when approval required
+    specialist_lead = agent_worker("LeadPublisher", ["Publishing"], role="Specialist")
+    specialist_lead["may_approve"] = True
+    task2 = {
+        "title": "Publish Hotfix",
+        "domain": "Publishing",
+        "Assigned To": "LeadPublisher",
+        "Status": "In progress",
+        "Agent Notes": "Testing hotfix.",
+    }
+    ok_lead, _, lead_task = complete_task_execution(
+        specialist_lead, task2, requires_approval=True, approval_granted=False, summary="Lead self-approved."
+    )
+    assert ok_lead, "Worker with May approve = True should be able to self-approve and complete"
+    assert lead_task["Status"] == "Done"
+    return True
+
+
+def test_queue_discipline_filters_queue_and_waits_on_future_start_date() -> bool:
+    """Queue discipline: read-your-queue isolates worker tasks, respects In progress, and waits on future Start Date."""
+    worker = agent_worker("WorkerOne", ["Writing"], role="Specialist")
+    current_date = "2026-09-24"
+
+    tasks = [
+        {
+            "title": "Past Task",
+            "domain": "Writing",
+            "Assigned To": "WorkerOne",
+            "Status": "Planned",
+            "Start Date": "2026-09-20",
+        },
+        {
+            "title": "Today Task",
+            "domain": "Writing",
+            "Assigned To": "WorkerOne",
+            "Status": "Planned",
+            "Start Date": "2026-09-24",
+        },
+        {
+            "title": "Future Task",
+            "domain": "Writing",
+            "Assigned To": "WorkerOne",
+            "Status": "Planned",
+            "Start Date": "2026-09-30",
+        },
+        {
+            "title": "Already Done Task",
+            "domain": "Writing",
+            "Assigned To": "WorkerOne",
+            "Status": "Done",
+        },
+        {
+            "title": "Other Worker Task",
+            "domain": "Writing",
+            "Assigned To": "WorkerTwo",
+            "Status": "Planned",
+        },
+    ]
+
+    q = get_worker_queue(worker, tasks, current_date=current_date)
+    # Excludes Done task and Other Worker task
+    assert len(q["all_assigned"]) == 3
+    assert [t["title"] for t in q["all_assigned"]] == ["Past Task", "Today Task", "Future Task"]
+    assert [t["title"] for t in q["ready"]] == ["Past Task", "Today Task"]
+    assert [t["title"] for t in q["waiting"]] == ["Future Task"]
+
+    # Attempting to start future task must be refused with wait instruction
+    future_task = tasks[2]
+    ok_future, future_reason, _ = start_task_execution(worker, future_task, current_date=current_date)
+    assert not ok_future, "Future task must not be started"
+    assert "Queue violation" in future_reason
+    assert "future Start Date '2026-09-30': worker must wait" in future_reason
+    assert future_task["Status"] == "Planned"
+
+    # Ready task can start
+    today_task = tasks[1]
+    ok_today, _, started_task = start_task_execution(worker, today_task, current_date=current_date)
+    assert ok_today
+    assert started_task["Status"] == "In progress"
+    return True
+
+
+def test_note_field_separation_invariant_refuses_agent_writing_user_notes() -> bool:
+    """Note separation invariant: user writes Notes, agents write Agent Notes; cross-writes strictly refused."""
+    worker = agent_worker("DevAgent", ["Writing"], role="Specialist")
+    task = {
+        "title": "Specs Draft",
+        "domain": "Writing",
+        "Assigned To": "DevAgent",
+        "Status": "In progress",
+        "Notes": "USER CRITICAL REQUIREMENT",
+        "Agent Notes": "Initial notes.",
+    }
+
+    # Agent cannot write to Notes
+    ok_agent_notes, reason_agent_notes, _ = update_task_field(
+        task, "Notes", "Agent overwrite", worker, is_user=False
+    )
+    assert not ok_agent_notes
+    assert "Invariant violation: Field 'Notes' is user-only" in reason_agent_notes
+    assert task["Notes"] == "USER CRITICAL REQUIREMENT"
+
+    # User can write to Notes
+    ok_user_notes, _, _ = update_task_field(
+        task, "Notes", "USER UPDATED REQUIREMENT", "User", is_user=True
+    )
+    assert ok_user_notes
+    assert task["Notes"] == "USER UPDATED REQUIREMENT"
+
+    # User cannot write to Agent Notes
+    ok_user_agent_notes, reason_uan, _ = update_task_field(
+        task, "Agent Notes", "User overwrite agent notes", "User", is_user=True
+    )
+    assert not ok_user_agent_notes
+    assert "Invariant violation: Field 'Agent Notes' is agent-only" in reason_uan
+
+    # Agent writes to Agent Notes -> appends, preserves prior content
+    ok_agent_an, _, updated_task = update_task_field(
+        task, "Agent Notes", "Second agent entry.", worker, is_user=False
+    )
+    assert ok_agent_an
+    assert "Initial notes." in updated_task["Agent Notes"]
+    assert "Second agent entry." in updated_task["Agent Notes"]
+    return True
+
+
+def test_no_lock_field_schema_contract() -> bool:
+    """Schema contract: Confirm locked decision that Assigned To routes to exactly one worker without lock/claim fields."""
+    wf_props = workforce_database_properties()
+    tasks_relation = tasks_assigned_to_relation("ds_test")
+
+    # Neither database carries a lock, claim, or locked_by property
+    for prop in ["Lock", "lock", "Claim", "claim", "locked_by", "Locked By"]:
+        assert prop not in wf_props, f"Workforce database should not have lock property '{prop}'"
+        assert prop not in tasks_relation, f"Tasks database should not have lock property '{prop}'"
+
+    # Assigned To is a single_property relation ensuring exactly one worker per task
+    assert RELATION_TYPE == "single_property"
+    assert "Assigned To" in tasks_relation
+    assert "relation" in tasks_relation["Assigned To"]
+    return True
+
+
 def run_self_test() -> int:
     """Run all named test cases proving the Done-when conditions and security guarantees."""
     print("=================================================================")
-    print("Running Workforce OS Permission Model Self-Tests...")
+    print("Running Workforce OS Permission & Multi-Worker Self-Tests...")
     print("=================================================================\n")
 
     cases = [
@@ -766,6 +1799,38 @@ def run_self_test() -> int:
             "Notion legibility: Permission state is completely legible directly from Notion properties",
             test_permission_state_legible_directly_from_notion_properties,
         ),
+        (
+            "Multi-worker safety: Two distinct workers operate same workspace without silent ownership or Notes overwrite",
+            test_two_workers_concurrent_workspace_safety_no_overwrite,
+        ),
+        (
+            "Handoff enforcement: Handoff requires a non-empty reason; handoff without reason is refused",
+            test_handoff_requires_reason_and_refuses_empty_reason,
+        ),
+        (
+            "Role separation (Assistant): Assistant worker is refused from performing specialist execution work",
+            test_role_separation_assistant_refuses_specialist_work,
+        ),
+        (
+            "Role separation (Advisor): Advisor worker is refused from triggering actions or maintaining fields",
+            test_role_separation_advisor_refuses_actions_and_field_maintenance,
+        ),
+        (
+            "Role separation (Specialist): Specialist without May approve cannot mark task Done when approval required",
+            test_role_separation_specialist_refuses_done_without_required_approval,
+        ),
+        (
+            "Queue discipline: Read-your-queue isolates worker tasks, respects In progress, and waits on future Start Date",
+            test_queue_discipline_filters_queue_and_waits_on_future_start_date,
+        ),
+        (
+            "Note field separation: Agent attempting to write to user-only Notes field is strictly blocked as an invariant violation",
+            test_note_field_separation_invariant_refuses_agent_writing_user_notes,
+        ),
+        (
+            "Schema contract: Confirms no lock or claim field exists; Assigned To relation provides single ownership",
+            test_no_lock_field_schema_contract,
+        ),
     ]
 
     failures = 0
@@ -779,8 +1844,8 @@ def run_self_test() -> int:
 
     print("\n-----------------------------------------------------------------")
     if failures == 0:
-        print(f"ALL {len(cases)} PERMISSION SELF-TEST CASES PASSED CLEANLY (0 failures).")
-        print("Done-when requirements 1, 2, and 3 are proven.")
+        print(f"ALL {len(cases)} SELF-TEST CASES PASSED CLEANLY (0 failures).")
+        print("All permission, handoff, queue discipline, note invariant, and role separation requirements are proven.")
         print("-----------------------------------------------------------------")
         return 0
     else:
@@ -843,13 +1908,72 @@ def dry_run_preview() -> dict:
             "action_gate_send_external_message": {"allowed": gate_ok, "reason": gate_reason},
         })
 
+    # Multi-worker handoff preview
+    handoff_task_fixture = {
+        "title": "Quarterly Newsletter",
+        "domain": "Writing",
+        "Assigned To": "Writer",
+        "Status": "In progress",
+        "Notes": "USER: Final tone review required.",
+        "Agent Notes": "First draft completed.",
+    }
+    handoff_ok, handoff_msg, _ = handoff_task(
+        deepcopy(handoff_task_fixture),
+        workers[1],
+        workers[2],
+        reason="First draft completed; handing off to Approver for editorial sign-off.",
+    )
+    handoff_bad_ok, handoff_bad_msg, _ = handoff_task(
+        deepcopy(handoff_task_fixture),
+        workers[1],
+        workers[2],
+        reason="",
+    )
+
+    # Queue discipline preview
+    queue_preview = get_worker_queue(
+        workers[1],
+        [
+            {"title": "Immediate Task", "domain": "Writing", "Assigned To": "Writer", "Status": "Planned", "Start Date": "2026-09-24"},
+            {"title": "Future Task", "domain": "Writing", "Assigned To": "Writer", "Status": "Planned", "Start Date": "2026-10-01"},
+        ],
+        current_date="2026-09-24",
+    )
+
+    # Role separation preview
+    asst = assistant_worker("AssistantPreview", ["Writing"])
+    adv = advisor_worker("AdvisorPreview", ["Writing"])
+    asst_ok, asst_msg = validate_role_action(asst, "writing")
+    adv_ok, adv_msg = validate_role_action(adv, "delete_page")
+
+    # Note field separation preview
+    note_agent_ok, note_agent_msg = validate_field_write_permission("Specialist", "Notes", "Writer")
+    note_user_ok, note_user_msg = validate_field_write_permission("User", "Notes", "User")
+
     return {
         "dry_run": True,
-        "note": "No changes made. This is the permission evaluation preview.",
+        "note": "No changes made. This is the permission and multi-worker safety evaluation preview.",
         "defaults_deny": True,
         "sensitive_domains": SENSITIVE_DOMAINS,
+        "no_lock_field_contract": True,
         "audit_log_entries": audit_log,
         "evaluations": evaluations,
+        "handoff_preview": {
+            "valid_handoff": {"allowed": handoff_ok, "detail": handoff_msg},
+            "unreasoned_handoff": {"allowed": handoff_bad_ok, "detail": handoff_bad_msg},
+        },
+        "queue_discipline_preview": {
+            "ready_count": len(queue_preview["ready"]),
+            "waiting_future_start_count": len(queue_preview["waiting"]),
+        },
+        "role_separation_preview": {
+            "assistant_specialist_work_blocked": {"allowed": asst_ok, "reason": asst_msg},
+            "advisor_action_blocked": {"allowed": adv_ok, "reason": adv_msg},
+        },
+        "note_field_separation_preview": {
+            "agent_writing_user_notes_blocked": {"allowed": note_agent_ok, "reason": note_agent_msg},
+            "user_writing_user_notes_allowed": {"allowed": note_user_ok, "reason": note_user_msg},
+        },
     }
 
 
