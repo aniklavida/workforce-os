@@ -108,3 +108,5 @@ Once a day, short — three to five lines:
 Use the user's timezone, configured in one place. Never hardcode it anywhere else.
 
 For recurring items, compute the next real occurrence from today. Static "days until due" formulas are wrong after the first cycle — ignore them for anything recurring.
+
+**Recurring work has no schema contract in v1.0.** `Type = Ongoing` exists as a label only — there is no `Recurrence` or `Last Done` field, and nothing rolls a due date forward automatically. Treat an `Ongoing` item as needing its own judgment call each time it comes up in review, not as something the system tracks a cycle for. This is a stated v1.0 limitation, not a gap to quietly work around.
