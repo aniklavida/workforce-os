@@ -235,12 +235,13 @@ def can_act_on_task(worker: dict, task: dict) -> tuple[bool, str]:
         return True, f"Worker '{worker_name}' is authorized to act on task '{task_title}' in domain '{task_domain}'."
 
 
-def human_worker(name: str, domains: list[str] | None = None) -> dict:
+def human_worker(name: str, domains: list[str] | None = None,
+                 role: str = "Specialist") -> dict:
     """A human teammate is an ordinary worker row, not a schema special case."""
     return {
         "worker": name,
         "kind": "Human",
-        "role": "Specialist",
+        "role": role,
         "channel": "None",
         "domains": domains or [],
         "may_approve": False,
@@ -249,16 +250,26 @@ def human_worker(name: str, domains: list[str] | None = None) -> dict:
 
 
 def agent_worker(name: str, domains: list[str],
-                 status: str = "Active") -> dict:
+                 status: str = "Active", role: str = "Specialist") -> dict:
     return {
         "worker": name,
         "kind": "Agent",
-        "role": "Specialist",
+        "role": role,
         "channel": "Claude Code",
         "domains": list(domains),
         "may_approve": False,
         "status": status,
     }
+
+
+def assistant_worker(name: str, domains: list[str] | None = None,
+                     status: str = "Active") -> dict:
+    return agent_worker(name, domains or [], status=status, role="Assistant")
+
+
+def advisor_worker(name: str, domains: list[str] | None = None,
+                   status: str = "Active") -> dict:
+    return agent_worker(name, domains or [], status=status, role="Advisor")
 
 
 def run_self_test() -> int:
