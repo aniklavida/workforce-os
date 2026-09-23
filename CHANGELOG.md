@@ -29,6 +29,7 @@ published as a release, so it is listed here rather than under a version.
 - **Four commands** — `/capture`, `/daily`, `/review`, `/assign`.
 - **`docs/STRUCTURE.md`** — the structure written out for agents that are not Claude Code (planned, unverified).
 - **`scripts/workforce_schema.py`** — the Workforce database and `Assigned To` relation payloads, the assignment gate, and a `--dry-run` / `--self-test` that run with no workspace. The `--live` path creates the database once a credential is supplied; it has not been executed here, and the document says so.
+- **`scripts/workforce_setup.py`** — idempotent setup orchestration that builds the entire Workforce OS structure from five short answers, discovers parent page markers, reconciles existing objects with zero duplicates, enforces mandatory Domain context routing declarations, and resumes cleanly after interruptions. Tested via `--self-test` and `--dry-run`.
 - **`scripts/notion_roundtrip_proof.py`** and **`docs/NOTION_ROUNDTRIP.md`** — a throwaway, paginated measurement script and the document it fills: it writes a task row with every formatting primitive the schema uses, reads it back, and records what survived and how the rate limit presented itself. The live run has not been executed yet; the document states that plainly and gives the one-command procedure.
 - Claude Code plugin and marketplace manifests, MIT licence, and a `.gitignore` that is strict about tokens and Notion exports.
 

@@ -28,6 +28,16 @@ Everything routes through a single task database. There is no second task list a
 | Agent Notes | Text | **agent only** |
 | Done Date | Date | agent |
 
+### Views
+
+- **Today** — not Done, not Someday, sorted by Priority then Due Date
+- **My Tasks** — `Assigned To` relation points at a worker with `Kind = Human`
+- **Agent Tasks** — `Assigned To` relation points at a worker with `Kind = Agent`
+- **One per Domain** — filtered by `Domain`, not Done
+- **Board** — grouped by Status (`Planned`, `In progress`, `Done`)
+- **Calendar** — grouped by Due Date
+- **Someday** — Type is Someday
+
 ## The Workforce database — one row per worker
 
 The old `Engine Room` page is now a database. Every assignable worker is a row,
@@ -78,6 +88,8 @@ Knowledge     who the user is, how they work
 Profile       official records and documents
 Logs          daily work log + weekly summaries
 ```
+
+The parent page carries the Workforce OS marker (`[workforce-os:root]`). Setup is idempotent: re-running setup discovers existing objects and reconciles missing properties and views without creating duplicate databases or pages.
 
 ## Domains do two jobs
 
