@@ -13,6 +13,15 @@ Confirm you have Notion write access. If not, stop and tell the user how to conn
 
 Ask where it should live: a new top-level page, or inside an existing one.
 
+### Idempotency and the Workforce OS marker
+
+Before creating anything, **search the parent page for a Workforce OS marker** (`[workforce-os:root]`) or existing child databases and pages (`Workforce`, `Tasks`, `Domains`, etc.):
+
+- **If found:** Reconcile rather than recreate. Add missing properties, options, and views to what already exists. Never create a duplicate database or duplicate page.
+- **If fresh:** Create the marker callout block on the parent page and proceed with fresh setup in the documented build order.
+- **Preview before creating:** Present a preview of what will be created and what will be reconciled, and report progress per object created.
+- **Destructive confirmation:** Every destructive or overwriting step (such as archiving a legacy property or replacing page content) requires explicit confirmation first.
+
 ## Ask first — five short questions, then build
 
 Do not build a generic workspace and hand it over. Ask these, and build from the answers:
@@ -21,9 +30,20 @@ Do not build a generic workspace and hand it over. Ask these, and build from the
 2. **What should your assistant call you?**
 3. **Where do you want the daily message — right here in this chat, or somewhere else your agent already delivers messages?** Workforce OS has no chat adapter of its own; delivery uses whatever surface the connecting agent already has.
 4. **What is the one thing you are actually working toward?** (Becomes their goals page. One line is enough.)
-5. **Which agents do you have, or want?** (If they don't know, create only the Assistant.) Each becomes a Worker row — role, channel, domains, capabilities.
+5. **Which workers they have, or want?** (If they don't know, create only the Assistant.) Each becomes a Worker row — role, channel, domains, capabilities.
 
 If they give short or vague answers, that is expected — **write them up properly yourself.** Never make them fill a form.
+
+### Decisions locked
+
+- Day one is five things the user will use, not twenty they will abandon.
+- A life area is one select option, never a new database.
+
+### Off by default
+
+Create these only if asked: habits, finance, health, reading, travel, contacts.
+
+Say this out loud to the user: *starting with everything is documented as the reason these systems die within a month. Day one is five things you will actually use, not twenty you will abandon. Adding a life area later is just adding a single select option, never a new database.*
 
 ## What to create
 
@@ -40,7 +60,7 @@ only the API handle changes.
 
 | Property | Type | Notes |
 |---|---|---|
-| Task | Title | |
+| Task | Title | Agent. Short, clear action or outcome |
 | Status | Status | `Planned` · `In progress` · `Done` — shared by user and agents |
 | Assigned To | Relation → Workforce | Exactly one worker per task. Never a select |
 | Domain | Select | One option per answer to question 1 |
@@ -51,7 +71,7 @@ only the API handle changes.
 | Done When | Text | Completion condition |
 | Notes | Text | **User's only.** Describe it that way in the field description |
 | Agent Notes | Text | **Agent's only** |
-| Done Date | Date | |
+| Done Date | Date | Completion timestamp |
 
 Set the field descriptions in Notion. They are how a future agent learns the contract without being told.
 
@@ -60,14 +80,14 @@ Set the field descriptions in Notion. They are how a future agent learns the con
 - **Today** — not Done, not Someday, sorted by priority then due date
 - **My Tasks** — `Assigned To` relation points at a worker with `Kind = Human`
 - **Agent Tasks** — `Assigned To` relation points at a worker with `Kind = Agent`
-- **One per Domain** — filtered, not Done
-- **Board** — grouped by Status
-- **Calendar** — by Due Date
+- **One per Domain** — filtered by `Domain`, not Done
+- **Board** — grouped by Status (`Planned`, `In progress`, `Done`)
+- **Calendar** — grouped by Due Date
 - **Someday** — Type is Someday
 
 ### The Workforce database — one row per worker
 
-This is the database the old `Engine Room` page becomes. Every worker the user
+This is the database the old `Engine Room` page became. Every worker the user
 can assign to is a row here: agents and people alike. **`Assigned To` on Tasks
 is a relation to this database**, so an assignment resolves to a real profile —
 role, channel, permissions, domain scope — not to a bare label.
@@ -85,7 +105,7 @@ role, channel, permissions, domain scope — not to a bare label.
 
 The **ninth** item is not a property: the **page body of each row is the full
 instructions that worker reads at startup.** Put the worker's operating
-brief there, the way the old Engine Room agent pages held it.
+brief there.
 
 **Every property carries a Notion field description naming who writes it.**
 That is how a future agent learns the contract without being told out of band.
@@ -136,68 +156,79 @@ has `Assigned To` as a select migrates in four steps, preserving rows:
 Never delete the legacy property before step 4. If a row cannot be matched,
 leave it on the legacy property and report it — do not invent a worker.
 
-### Navigation — build it as a gallery, not a list of links
-
-This is what separates a template that looks professional from one that looks improvised.
-
-Create a **Sections** database. Each row **is** an actual section page, so clicking a card opens the real thing rather than a stub. Display it as a **gallery with page covers as the card preview**, grouped by band.
-
-| Property | Type | Purpose |
-|---|---|---|
-| Section | Title | |
-| Group | Select — `Work` / `You` / `Engine` | Groups the gallery into bands |
-| Order | Number | Controls card order within a band |
-| What it is | Text | The one line shown on the card |
-
-Give every section page a **cover image and an emoji icon**. The cover is the card art; without it the gallery renders as empty grey rectangles and looks worse than a plain list.
-
-A flat list of page links is the default and it reads as unfinished. Cards with art read as a product.
-
 ### Pages
 
 ```
 Home            Today · anything waiting on the user · upcoming · this week
 Tasks           the database above
-Workforce       the worker database above · one row per worker · instructions in the row body
-Domains         one child page per Domain from question 1
+Workforce       the worker database above · one row per worker · instructions in row body
+Domains         parent page with one child page per Domain from question 1
 Goals           from question 4
 Knowledge       who they are, how they work, what agents should know
 Profile         official records and documents
 Logs            daily work log + weekly summaries
 ```
 
-The `Workforce` entry replaces the old `Engine Room` page. Worker profiles are
-rows in a database now, not hand-maintained Markdown pages, which is what lets
-a user add a worker from Notion without touching this repository.
+### Required Domain context declaration
 
-**Each Domain page must state which context an agent may load for it.** Without that line, agents read everything and the routing in `AGENTS.md` does not work.
+**Each Domain page must declare which context an agent may load for it.**
+Without that line, agents read everything and the routing in `AGENTS.md` does not work.
+Make this a required part of Domain creation, not optional.
 
-### Off by default
+On each domain page (`Domains/<Domain Name>`), include this callout block and context declaration:
 
-Create these only if asked: habits, finance, health, reading, travel, contacts.
+```markdown
+> 🛡️ **AGENT ROUTING CONTRACT (AGENTS.md rule 5):** An agent working in the '<Domain Name>' domain may ONLY read this domain page, its declared children, and domain-relevant entries in Goals and Knowledge. Loading unlisted domains or the Profile page is strictly prohibited.
 
-Say this out loud to the user: *starting with everything is why most of these systems die within a month.* Five things they use beats twenty they abandon.
+## Declared Context for this Domain
+- This Domain page (Domains/<Domain Name>) and its immediate children
+- Goals relevant to <Domain Name>
+- Knowledge base entries tagged for <Domain Name>
+```
+
+### Navigation — build it as a gallery, not a list of links
+
+This is what separates a template that looks professional from one that looks improvised.
+
+Create a **Sections** database. Each row **is** an actual section page, so clicking a gallery item opens the real thing rather than a stub. Display it as a **gallery with page covers as the gallery preview**, grouped by band.
+
+| Property | Type | Purpose |
+|---|---|---|
+| Section | Title | |
+| Group | Select — `Work` / `You` / `Engine` | Groups the gallery into bands |
+| Order | Number | Controls item order within a band |
+| What it is | Text | The one line shown on each item |
+
+Give every section page a **cover image and an emoji icon**. The cover provides visual art; without it the gallery renders as empty grey rectangles and looks worse than a plain list.
 
 ## Build order
 
 Create in this order so nothing is orphaned if it stops halfway:
 
-1. Home page
-2. Workforce database + all eight properties + field descriptions + a `Kind = Human`, `Channel = None` row for the user (question 2) + one worker row per answer to question 5
-3. Task database + fields, with `Assigned To` as a Relation → Workforce
-4. Views
-5. Section pages: Domains, Goals, Knowledge, Profile, Reminders, Logs, Workforce
-6. Domain pages
-7. Worker instructions written into each Workforce row body
-8. Sections database, then move the section pages into it
-9. Gallery view, grouped by band
-10. Covers and icons on every page
-11. Embed the gallery and the live views on Home
+1. **Marker block** on parent page (`[workforce-os:root]`)
+2. **Workforce database** + all eight properties + field descriptions + a `Kind = Human`, `Channel = None` row for the user (question 2) + worker rows per answer to question 5
+3. **Task database** + fields, with `Assigned To` as a Relation → Workforce
+4. **Views** on Tasks (Today, My Tasks, Agent Tasks, one per Domain, Board, Calendar, Someday)
+5. **Section pages**: Domains, Goals, Knowledge, Profile, Logs
+6. **Domain pages** under Domains, each with mandatory declared agent read context
+7. **Worker instructions** written into each Workforce row body
+8. **Sections database** and gallery navigation view
+9. **First real task** created end to end with the user
 
 The Workforce database comes before Tasks: a relation cannot point at a target
 that does not exist yet.
 
-**Be resumable.** Before creating anything, check whether it already exists. Re-running setup must never produce duplicates. If something fails, report exactly what was built and what was not — never leave the user guessing.
+### Resumability and failure handling
+
+Before creating anything, check whether it already exists. Re-running setup must
+never produce duplicates.
+
+If setup fails or access is lost mid-run, report:
+- **What was built:** Exact list of objects created before the interruption.
+- **What was NOT built:** Exact list of pending objects.
+
+Subsequent execution resumes from the interruption point. Existing databases and
+pages are discovered and reconciled rather than recreated.
 
 ## Finish
 
@@ -210,10 +241,18 @@ Tell them, in plain language:
 
 Then create one real task with them, end to end, so the first thing they see is it working.
 
-## A note on how it looks
+## Executable setup and verification
 
-Do not treat this as decoration to add later. A workspace with no covers, no icons and a bare list of page links reads as unfinished, and people abandon things that feel unfinished — regardless of how well the underlying system works.
+The setup logic is encoded and tested in `scripts/workforce_setup.py`:
 
-Covers and icons on every page. Navigation as a gallery. A coloured callout heading each component, because Notion has no borders and callout backgrounds are the only way to make one block read as separate from the next.
+```sh
+# Dry run: previews the plan and validates structure generation without credentials
+python3 scripts/workforce_setup.py --dry-run
 
-Ask the user to pick the cover art themselves if they care about it. Notion's built-in picker takes them ten seconds per page and they get an aesthetic they actually like.
+# Self-test: runs automated tests for fresh setup, idempotency (0 duplicates), and failure recovery
+python3 scripts/workforce_setup.py --self-test
+
+# Live run: executes setup against Notion REST API
+NOTION_TOKEN=... NOTION_PARENT_PAGE_ID=... \
+    python3 scripts/workforce_setup.py --live
+```
