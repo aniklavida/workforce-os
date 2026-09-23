@@ -211,7 +211,7 @@ Give every section page a **cover image and an emoji icon**. The cover provides 
 Create in this order so nothing is orphaned if it stops halfway:
 
 1. **Marker block** on parent page (`[workforce-os:root]`)
-2. **Workforce database** + all eight properties + field descriptions + a `Kind = Human`, `Channel = None` row for the user (question 2) + worker rows per answer to question 5
+2. **Workforce database** + all eight properties + field descriptions + a `Kind = Human`, `Channel = None` row for the user (question 2) + worker rows per answer to question 5 (`Profile` domain is sensitive and granted to nobody by default; `May approve` defaults off)
 3. **Task database** + fields, with `Assigned To` as a Relation → Workforce
 4. **Views** on Tasks (Today, My Tasks, Agent Tasks, one per Domain, Board, Calendar, Someday)
 5. **Section pages**: Domains, Goals, Knowledge, Profile, Logs

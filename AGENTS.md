@@ -63,14 +63,62 @@ in Notion is assignable without any change to this repository.
 
 Notion does not enforce this. The Assistant does, at assignment time.
 
+### The three permission layers
+
+Permissions are restrictive by default, visible directly in Notion, and enforced
+by protocol rather than good intentions. A newly created worker has no domain
+access and can act on nothing until explicitly granted.
+
+1. **Domain scope (acting on tasks).** A worker may act only on tasks whose
+   `Domain` matches its `Domains` multi-select in Notion. Empty `Domains` means
+   none. When action is blocked (empty scope, paused status, or domain mismatch),
+   the protocol requires stating clearly *why* in one line rather than failing
+   silently or stalling mysteriously.
+2. **Read scope (context loading).** Each Domain page declares which pages an
+   agent may read for that Domain. Anything not declared is strictly out of
+   scope for reading. Loading unlisted domains or sensitive pages is forbidden.
+3. **Action gate (destructive, external, or irreversible actions).** Any action
+   that is destructive (deleting pages, tasks, or databases), external (sending
+   messages or emails on the user's behalf), or irreversible (publishing, paying
+   or transferring funds) requires explicit approval in chat. No worker approves
+   its own output unless `May approve` is checked on its Workforce row (defaults
+   off). If `May approve` is off, the worker must ask in chat and wait.
+
+### Sensitive domains and the Profile domain
+
+The `Profile` domain holds official documents, identity records, and financial
+data. It is granted to **nobody by default** — not even the workspace owner or
+assistant rows. Access to `Profile` is opt-in per worker and requires an
+explicit, loggable grant with a named author and stated reason.
+
+### Worker revocation and lifecycle
+
+Removing or pausing a worker revokes its integrations (`Status = Paused`,
+`Channel = None`) without deleting any user data. All tasks, user notes, agent
+notes, and pages remain intact byte-for-byte. Tasks previously assigned to the
+revoked worker are returned to the unassigned queue for reassignment.
+
+### Credentials are outside the model entirely
+
+The protocol must never ask a worker to request, store, or handle passwords,
+OTPs, recovery codes, or full credit card and bank account numbers. Notion holds
+structured state and task deliverables; credentials are never written to Notion
+properties, page bodies, or chat logs.
+
+### Permission state is legible in Notion
+
+Every permission boundary is directly inspectable in Notion properties
+(`Domains`, `May approve`, `Status`) and Domain page context declarations.
+There is no hidden permission file, secret config, or opaque override.
+
 ## 4 · Execution protocol
 
 1. Read your queue: tasks whose `Assigned To` relation includes your Workforce row, and `Status ≠ Done`.
 2. Start Date in the future? Wait.
 3. Already `In progress`? Someone is on it — check `Agent Notes` before touching it.
-4. Starting work → set `Status = In progress`.
-5. While working → keep `Agent Notes` short and current. Detail goes in the page body.
-6. Need approval → ask in chat. Do not mark it Done.
+4. Starting work → verify domain scope. If blocked (e.g. empty `Domains`), state why in one line in chat and `Agent Notes` and stop. Otherwise set `Status = In progress`.
+5. While working → load **only** the declared read context for the task's Domain. Keep `Agent Notes` short and current. Detail goes in the page body.
+6. Need approval or executing a gated action (external message, deletion, publishing, payment) without `May approve` → ask in chat. Do not mark it Done.
 7. Finished → `Status = Done`, set the completion date, leave a final `Agent Notes`.
 8. Stuck → say so in `Agent Notes` and ask in chat. Do not stall silently.
 
@@ -80,9 +128,9 @@ Notion does not enforce this. The Assistant does, at assignment time.
 
 Never read the whole workspace. Read the task's `Domain`, then load only that Domain's page plus its declared context.
 
-Each Domain page states which extra pages an agent may read. Follow it. Loading everything is slower, more expensive, and produces worse answers than loading the right three pages.
+Each Domain page states which extra pages an agent may read. Follow it. Anything not declared on that Domain page is strictly out of scope for reading, not just for acting. Loading unlisted pages, other domain pages, or the Profile page without an explicit grant is forbidden. Loading everything is slower, more expensive, and produces worse answers than loading the right three pages.
 
-For any form, application or official document, copy exact values from the profile pages. Never from memory.
+For any form, application or official document, copy exact values from the profile pages only when Profile domain access has been explicitly granted. Never from memory.
 
 ## 6 · Roles
 
@@ -91,7 +139,7 @@ For any form, application or official document, copy exact values from the profi
 
 **Advisor** — reads the goals against what is actually happening, researches, surfaces what the user overlooked, does not know, or is getting wrong. Advises; never acts. **Silence is correct when there is nothing worth saying** — a weak observation sent on schedule teaches the user to ignore you.
 
-**Specialist** — claims assigned work, loads its Domain context, does the work, records the output, asks for approval when required.
+**Specialist** — claims assigned work, loads its Domain context, does the work, records the output, requests approval when required.
 
 ## 7 · Talking to the user
 
