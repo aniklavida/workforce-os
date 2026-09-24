@@ -314,6 +314,159 @@ def required_views_specification(domains: list[str]) -> list[dict]:
     return views
 
 
+SECTIONS_SPEC = {
+    "Home": {
+        "group": "Work",
+        "order": 1,
+        "what_it_is": "Today · waiting on you · upcoming · this week",
+        "icon": "🏠",
+        "cover": "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80",
+        "color": "blue_background",
+    },
+    "Tasks": {
+        "group": "Work",
+        "order": 2,
+        "what_it_is": "One shared work database",
+        "icon": "📋",
+        "cover": "https://images.unsplash.com/photo-1484480974693-6ca0a78fb36b?auto=format&fit=crop&w=1200&q=80",
+        "color": "blue_background",
+    },
+    "Goals": {
+        "group": "Work",
+        "order": 3,
+        "what_it_is": "What this is all for",
+        "icon": "🎯",
+        "cover": "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1200&q=80",
+        "color": "orange_background",
+    },
+    "Domains": {
+        "group": "You",
+        "order": 1,
+        "what_it_is": "One page per life area",
+        "icon": "🌐",
+        "cover": "https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=1200&q=80",
+        "color": "green_background",
+    },
+    "Knowledge": {
+        "group": "You",
+        "order": 2,
+        "what_it_is": "Who the user is, how they work",
+        "icon": "🧠",
+        "cover": "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?auto=format&fit=crop&w=1200&q=80",
+        "color": "yellow_background",
+    },
+    "Profile": {
+        "group": "You",
+        "order": 3,
+        "what_it_is": "Official records and documents",
+        "icon": "🔒",
+        "cover": "https://images.unsplash.com/photo-1450133064473-71024230f91b?auto=format&fit=crop&w=1200&q=80",
+        "color": "red_background",
+    },
+    "Workforce": {
+        "group": "Engine",
+        "order": 1,
+        "what_it_is": "Worker profiles, roles, channels, and permissions",
+        "icon": "👥",
+        "cover": "https://images.unsplash.com/photo-1522071820081-009f0129c71c?auto=format&fit=crop&w=1200&q=80",
+        "color": "purple_background",
+    },
+    "Logs": {
+        "group": "Engine",
+        "order": 2,
+        "what_it_is": "Daily work log + weekly summaries",
+        "icon": "📜",
+        "cover": "https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=1200&q=80",
+        "color": "gray_background",
+    },
+}
+
+
+def sections_database_properties() -> dict:
+    """Properties for the Sections navigation database."""
+    return {
+        "Section": {
+            "title": {},
+            "description": "Assistant. Title of the section page.",
+        },
+        "Group": {
+            "select": {
+                "options": [
+                    {"name": "Work", "color": "blue"},
+                    {"name": "You", "color": "green"},
+                    {"name": "Engine", "color": "purple"},
+                ]
+            },
+            "description": "Assistant. Band grouping: Work, You, Engine.",
+        },
+        "Order": {
+            "number": {"format": "number"},
+            "description": "Assistant. Position within the group band.",
+        },
+        "What it is": {
+            "rich_text": {},
+            "description": "Assistant. One-line card description for the gallery.",
+        },
+    }
+
+
+def sections_gallery_view_specification() -> dict:
+    """Gallery view specification with page covers grouped by band."""
+    return {
+        "name": "Gallery",
+        "type": "gallery",
+        "description": "Gallery view with page covers grouped into bands (Work, You, Engine)",
+        "group_by": "Group",
+        "sorts": [
+            {"property": "Order", "direction": "ascending"}
+        ],
+    }
+
+
+def coloured_callout_header(title: str, what_it_is: str, icon_emoji: str,
+                            color: str = "blue_background") -> dict:
+    """Coloured callout header substituting for borders and section dividers."""
+    return {
+        "object": "block",
+        "type": "callout",
+        "callout": {
+            "icon": {"type": "emoji", "emoji": icon_emoji},
+            "color": color,
+            "rich_text": [
+                {
+                    "type": "text",
+                    "text": {"content": f"{title} — {what_it_is}"},
+                }
+            ],
+        },
+    }
+
+
+def two_column_layout(left_blocks: list[dict], right_blocks: list[dict]) -> dict:
+    """Two-column block layout that reduces scrolling while preserving mobile legibility.
+
+    Never creates three or more columns, respecting the mobile reading constraint.
+    """
+    return {
+        "object": "block",
+        "type": "column_list",
+        "column_list": {
+            "children": [
+                {
+                    "object": "block",
+                    "type": "column",
+                    "column": {"children": left_blocks},
+                },
+                {
+                    "object": "block",
+                    "type": "column",
+                    "column": {"children": right_blocks},
+                },
+            ]
+        },
+    }
+
+
 def domain_page_declared_context(domain_name: str) -> list[dict]:
     """Block payload for Domain page declaring mandatory agent read scope.
     
@@ -493,6 +646,8 @@ class SimulatedNotionWorkspace:
                 "parent": None,
                 "properties": {},
                 "children": [],
+                "icon": None,
+                "cover": None,
             }
         }
         self.databases: dict[str, dict] = {}
@@ -525,7 +680,10 @@ class SimulatedNotionWorkspace:
         ]
 
     def create_database(self, parent_page_id: str, title: str,
-                        properties: dict) -> dict:
+                        properties: dict,
+                        icon: dict | None = None,
+                        cover: dict | None = None,
+                        description: list[dict] | None = None) -> dict:
         if self.fail_at_step == "create_database":
             raise RuntimeError("Simulated network failure during create_database")
 
@@ -537,6 +695,9 @@ class SimulatedNotionWorkspace:
             "parent": {"type": "page_id", "page_id": parent_page_id},
             "properties": copy.deepcopy(properties),
             "data_sources": [{"id": ds_id}],
+            "icon": copy.deepcopy(icon) if icon else None,
+            "cover": copy.deepcopy(cover) if cover else None,
+            "description": copy.deepcopy(description or []),
         }
         self.databases[db_id] = db
         self.data_sources[ds_id] = {
@@ -582,9 +743,30 @@ class SimulatedNotionWorkspace:
                             self.properties_added += 1
         return db
 
+    def update_database(self, db_id: str,
+                        new_props: dict | None = None,
+                        icon: dict | None = None,
+                        cover: dict | None = None,
+                        description: list[dict] | None = None) -> dict:
+        """Update database properties and metadata, preserving existing user customizations."""
+        if self.fail_at_step == "update_database":
+            raise RuntimeError("Simulated failure during update_database")
+        db = self.databases[db_id]
+        if icon and not db.get("icon"):
+            db["icon"] = copy.deepcopy(icon)
+        if cover and not db.get("cover"):
+            db["cover"] = copy.deepcopy(cover)
+        if description and not db.get("description"):
+            db["description"] = copy.deepcopy(description)
+        if new_props:
+            self.update_database_properties(db_id, new_props)
+        return db
+
     def create_page(self, parent: dict, title: str,
                     properties: dict | None = None,
-                    children: list[dict] | None = None) -> dict:
+                    children: list[dict] | None = None,
+                    icon: dict | None = None,
+                    cover: dict | None = None) -> dict:
         if self.fail_at_step == "create_page":
             raise RuntimeError("Simulated failure during create_page")
 
@@ -595,6 +777,8 @@ class SimulatedNotionWorkspace:
             "parent": copy.deepcopy(parent),
             "properties": copy.deepcopy(properties or {}),
             "children": copy.deepcopy(children or []),
+            "icon": copy.deepcopy(icon) if icon else None,
+            "cover": copy.deepcopy(cover) if cover else None,
         }
         self.pages[page_id] = page
         self.blocks[page_id] = copy.deepcopy(children or [])
@@ -614,6 +798,22 @@ class SimulatedNotionWorkspace:
             if ds_id in self.data_sources:
                 self.data_sources[ds_id]["rows"].append(page)
 
+        return page
+
+    def update_page(self, page_id: str,
+                    properties: dict | None = None,
+                    icon: dict | None = None,
+                    cover: dict | None = None) -> dict:
+        """Update page properties and metadata, preserving existing user customizations."""
+        if self.fail_at_step == "update_page":
+            raise RuntimeError("Simulated failure during update_page")
+        page = self.pages[page_id]
+        if properties:
+            page.setdefault("properties", {}).update(copy.deepcopy(properties))
+        if icon and not page.get("icon"):
+            page["icon"] = copy.deepcopy(icon)
+        if cover and not page.get("cover"):
+            page["cover"] = copy.deepcopy(cover)
         return page
 
     def append_blocks(self, block_id: str, children: list[dict]) -> list[dict]:
@@ -690,6 +890,8 @@ class IdempotentSetupOrchestrator:
         self.workforce_ds_id: str | None = None
         self.tasks_db_id: str | None = None
         self.tasks_ds_id: str | None = None
+        self.sections_db_id: str | None = None
+        self.sections_ds_id: str | None = None
         self.section_page_ids: dict[str, str] = {}
         self.domain_page_ids: dict[str, str] = {}
         self.user_worker_row_id: str | None = None
@@ -737,7 +939,7 @@ class IdempotentSetupOrchestrator:
         pages_by_title = {p.get("title"): p for p in child_pages}
 
         # If known databases exist even without explicit callout, marker is effectively present
-        if "Workforce" in dbs_by_title or "Tasks" in dbs_by_title:
+        if "Workforce" in dbs_by_title or "Tasks" in dbs_by_title or "Sections" in dbs_by_title:
             marker_found = True
 
         self.report.marker_found = marker_found
@@ -774,6 +976,12 @@ class IdempotentSetupOrchestrator:
         else:
             plan["steps"].append("Create Tasks database with Assigned To -> Workforce relation")
 
+        # Sections DB
+        if "Sections" in scan["dbs"]:
+            plan["steps"].append("Reconcile existing Sections database (0 duplicate databases)")
+        else:
+            plan["steps"].append("Create Sections database and gallery navigation")
+
         # Views
         plan["steps"].append("Configure Tasks views (Today, My Tasks, Agent Tasks, Domains, Board, Calendar, Someday)")
 
@@ -803,7 +1011,7 @@ class IdempotentSetupOrchestrator:
             "Tasks views",
             "Section pages",
             "Domain pages with declared context",
-            "Worker startup briefs",
+            "Sections database and gallery navigation",
             "Initial task end-to-end",
         ]
         self.report.what_was_not_built = list(all_planned_steps)
@@ -817,16 +1025,39 @@ class IdempotentSetupOrchestrator:
             else:
                 self.log("  No marker found. Fresh workspace setup initiated.")
 
+            # Home page cover and icon (preserves existing user customizations)
+            home_spec = SECTIONS_SPEC["Home"]
+            self.ws.update_page(
+                parent_id,
+                icon={"type": "emoji", "emoji": home_spec["icon"]},
+                cover={"type": "external", "external": {"url": home_spec["cover"]}},
+            )
+
             # Ensure marker block exists on parent
             if not scan["marker_found"]:
-                self.ws.append_blocks(parent_id, [{
-                    "object": "block",
-                    "type": "callout",
-                    "callout": {
-                        "icon": {"emoji": "⚡"},
-                        "rich_text": [{"type": "text", "text": {"content": MARKER_CALLOUT_TEXT}}],
+                self.ws.append_blocks(parent_id, [
+                    {
+                        "object": "block",
+                        "type": "callout",
+                        "callout": {
+                            "icon": {"emoji": "⚡"},
+                            "rich_text": [{"type": "text", "text": {"content": MARKER_CALLOUT_TEXT}}],
+                        },
                     },
-                }])
+                    coloured_callout_header("Home", home_spec["what_it_is"], home_spec["icon"], home_spec["color"]),
+                    two_column_layout(
+                        left_blocks=[{
+                            "object": "block",
+                            "type": "heading_2",
+                            "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Today & Waiting on you"}}]},
+                        }],
+                        right_blocks=[{
+                            "object": "block",
+                            "type": "heading_2",
+                            "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Upcoming & This week"}}]},
+                        }],
+                    ),
+                ])
                 self.report.objects_created.append("Marker block")
             else:
                 self.report.objects_reconciled.append("Marker block")
@@ -835,6 +1066,7 @@ class IdempotentSetupOrchestrator:
 
             # 2. Workforce Database
             self.log("Step 2/9: Reconciling or creating Workforce database...")
+            wf_spec = SECTIONS_SPEC["Workforce"]
             if "Workforce" in scan["dbs"]:
                 self.log("  Existing Workforce database found. Reconciling properties...")
                 existing_db = scan["dbs"]["Workforce"]
@@ -849,11 +1081,24 @@ class IdempotentSetupOrchestrator:
                     self.ws.update_database_properties(self.workforce_db_id, missing_props)
                     for k in missing_props:
                         self.report.properties_added.append(f"Workforce.{k}")
+                self.ws.update_database(
+                    self.workforce_db_id,
+                    icon={"type": "emoji", "emoji": wf_spec["icon"]},
+                    cover={"type": "external", "external": {"url": wf_spec["cover"]}},
+                    description=[{"type": "text", "text": {"content": wf_spec["what_it_is"]}}],
+                )
                 self.report.objects_reconciled.append("Workforce database")
                 self.report.duplicate_databases_prevented += 1
             else:
                 self.log("  Creating Workforce database...")
-                db = self.ws.create_database(parent_id, "Workforce", workforce_database_properties())
+                db = self.ws.create_database(
+                    parent_id,
+                    "Workforce",
+                    workforce_database_properties(),
+                    icon={"type": "emoji", "emoji": wf_spec["icon"]},
+                    cover={"type": "external", "external": {"url": wf_spec["cover"]}},
+                    description=[{"type": "text", "text": {"content": wf_spec["what_it_is"]}}],
+                )
                 self.workforce_db_id = db["id"]
                 self.workforce_ds_id = db["data_sources"][0]["id"]
                 self.report.objects_created.append("Workforce database")
@@ -924,6 +1169,7 @@ class IdempotentSetupOrchestrator:
             # 4. Tasks database with relation to Workforce
             self.log("Step 4/9: Reconciling or creating Tasks database...")
             tasks_props = tasks_database_properties(self.workforce_ds_id, self.answers.domains)
+            tasks_spec = SECTIONS_SPEC["Tasks"]
             if "Tasks" in scan["dbs"]:
                 self.log("  Existing Tasks database found. Reconciling properties...")
                 existing_tasks_db = scan["dbs"]["Tasks"]
@@ -931,11 +1177,24 @@ class IdempotentSetupOrchestrator:
                 self.tasks_ds_id = existing_tasks_db["data_sources"][0]["id"]
                 # Reconcile properties (add missing properties or merge domain options)
                 self.ws.update_database_properties(self.tasks_db_id, tasks_props)
+                self.ws.update_database(
+                    self.tasks_db_id,
+                    icon={"type": "emoji", "emoji": tasks_spec["icon"]},
+                    cover={"type": "external", "external": {"url": tasks_spec["cover"]}},
+                    description=[{"type": "text", "text": {"content": tasks_spec["what_it_is"]}}],
+                )
                 self.report.objects_reconciled.append("Tasks database")
                 self.report.duplicate_databases_prevented += 1
             else:
                 self.log("  Creating Tasks database...")
-                tdb = self.ws.create_database(parent_id, "Tasks", tasks_props)
+                tdb = self.ws.create_database(
+                    parent_id,
+                    "Tasks",
+                    tasks_props,
+                    icon={"type": "emoji", "emoji": tasks_spec["icon"]},
+                    cover={"type": "external", "external": {"url": tasks_spec["cover"]}},
+                    description=[{"type": "text", "text": {"content": tasks_spec["what_it_is"]}}],
+                )
                 self.tasks_db_id = tdb["id"]
                 self.tasks_ds_id = tdb["data_sources"][0]["id"]
                 self.report.objects_created.append("Tasks database")
@@ -953,23 +1212,61 @@ class IdempotentSetupOrchestrator:
             # 6. Section pages: Domains, Goals, Knowledge, Profile, Logs
             self.log("Step 6/9: Setting up core section pages...")
             for sp_title in REQUIRED_SECTION_PAGES:
+                sp_spec = SECTIONS_SPEC.get(sp_title, {})
                 if sp_title in scan["pages"]:
                     self.log(f"  Existing {sp_title} page found. Reusing...")
                     p = scan["pages"][sp_title]
                     self.section_page_ids[sp_title] = p["id"]
+                    self.ws.update_page(
+                        p["id"],
+                        icon={"type": "emoji", "emoji": sp_spec["icon"]} if sp_spec.get("icon") else None,
+                        cover={"type": "external", "external": {"url": sp_spec["cover"]}} if sp_spec.get("cover") else None,
+                    )
                     self.report.objects_reconciled.append(f"Page: {sp_title}")
                     self.report.duplicate_pages_prevented += 1
                 else:
                     self.log(f"  Creating {sp_title} page...")
+                    children: list[dict] = [
+                        {
+                            "object": "block",
+                            "type": "heading_1",
+                            "heading_1": {"rich_text": [{"type": "text", "text": {"content": sp_title}}]},
+                        },
+                        coloured_callout_header(sp_title, sp_spec.get("what_it_is", ""), sp_spec.get("icon", "📄"), sp_spec.get("color", "blue_background")),
+                    ]
+                    if sp_title == "Goals":
+                        children.append(two_column_layout(
+                            left_blocks=[{
+                                "object": "block",
+                                "type": "heading_2",
+                                "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Active Goals"}}]},
+                            }],
+                            right_blocks=[{
+                                "object": "block",
+                                "type": "heading_2",
+                                "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Someday Goals"}}]},
+                            }],
+                        ))
+                    elif sp_title == "Knowledge":
+                        children.append(two_column_layout(
+                            left_blocks=[{
+                                "object": "block",
+                                "type": "heading_2",
+                                "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Working Style & Preferences"}}]},
+                            }],
+                            right_blocks=[{
+                                "object": "block",
+                                "type": "heading_2",
+                                "heading_2": {"rich_text": [{"type": "text", "text": {"content": "Decision Records"}}]},
+                            }],
+                        ))
                     p = self.ws.create_page(
                         parent={"type": "page_id", "page_id": parent_id},
                         title=sp_title,
                         properties={},
-                        children=[{
-                            "object": "block",
-                            "type": "heading_1",
-                            "heading_1": {"rich_text": [{"type": "text", "text": {"content": sp_title}}]},
-                        }],
+                        children=children,
+                        icon={"type": "emoji", "emoji": sp_spec["icon"]} if sp_spec.get("icon") else None,
+                        cover={"type": "external", "external": {"url": sp_spec["cover"]}} if sp_spec.get("cover") else None,
                     )
                     self.section_page_ids[sp_title] = p["id"]
                     self.report.objects_created.append(f"Page: {sp_title}")
@@ -1001,9 +1298,94 @@ class IdempotentSetupOrchestrator:
 
             self._mark_step_done("Domain pages with declared context")
 
-            # 8. Worker startup briefs
-            self.log("Step 8/9: Writing startup briefs to worker rows...")
-            self._mark_step_done("Worker startup briefs")
+            # 8. Sections database and gallery navigation
+            self.log("Step 8/9: Reconciling or creating Sections database and gallery navigation...")
+            sections_props = sections_database_properties()
+            if "Sections" in scan["dbs"]:
+                self.log("  Existing Sections database found. Reconciling properties...")
+                existing_sections_db = scan["dbs"]["Sections"]
+                self.sections_db_id = existing_sections_db["id"]
+                self.sections_ds_id = existing_sections_db["data_sources"][0]["id"]
+                missing_props = {
+                    k: v for k, v in sections_props.items()
+                    if k not in existing_sections_db.get("properties", {})
+                }
+                if missing_props:
+                    self.ws.update_database_properties(self.sections_db_id, missing_props)
+                    for k in missing_props:
+                        self.report.properties_added.append(f"Sections.{k}")
+                self.ws.update_database(
+                    self.sections_db_id,
+                    icon={"type": "emoji", "emoji": "🗂️"},
+                    cover={"type": "external", "external": {"url": "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80"}},
+                    description=[{"type": "text", "text": {"content": "Gallery navigation across all workspace sections."}}],
+                )
+                self.report.objects_reconciled.append("Sections database")
+                self.report.duplicate_databases_prevented += 1
+            else:
+                self.log("  Creating Sections database...")
+                sdb = self.ws.create_database(
+                    parent_id,
+                    "Sections",
+                    sections_props,
+                    icon={"type": "emoji", "emoji": "🗂️"},
+                    cover={"type": "external", "external": {"url": "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80"}},
+                    description=[{"type": "text", "text": {"content": "Gallery navigation across all workspace sections."}}],
+                )
+                self.sections_db_id = sdb["id"]
+                self.sections_ds_id = sdb["data_sources"][0]["id"]
+                self.report.objects_created.append("Sections database")
+
+            # Configure gallery view
+            self.ws.add_view(self.sections_ds_id, sections_gallery_view_specification())
+            self.report.views_added.append("Gallery")
+
+            # Reconcile or create the 8 section cards in Sections database
+            existing_section_rows = []
+            if self.sections_ds_id in self.ws.data_sources:
+                existing_section_rows = self.ws.data_sources[self.sections_ds_id].get("rows", [])
+            existing_section_names = {
+                r.get("properties", {}).get("Section", {}).get("title", [{}])[0].get("text", {}).get("content", "")
+                for r in existing_section_rows
+            }
+            existing_rows_by_name = {
+                r.get("properties", {}).get("Section", {}).get("title", [{}])[0].get("text", {}).get("content", ""): r
+                for r in existing_section_rows
+            }
+
+            for sec_name, sec_spec in SECTIONS_SPEC.items():
+                if sec_name in existing_section_names:
+                    existing_row = existing_rows_by_name[sec_name]
+                    self.ws.update_page(
+                        existing_row["id"],
+                        properties={
+                            "Group": {"select": {"name": sec_spec["group"]}},
+                            "Order": {"number": sec_spec["order"]},
+                            "What it is": {"rich_text": [{"type": "text", "text": {"content": sec_spec["what_it_is"]}}]},
+                        },
+                        icon={"type": "emoji", "emoji": sec_spec["icon"]},
+                        cover={"type": "external", "external": {"url": sec_spec["cover"]}},
+                    )
+                    self.report.objects_reconciled.append(f"Section Card: {sec_name}")
+                else:
+                    self.ws.create_page(
+                        parent={"type": "data_source_id", "data_source_id": self.sections_ds_id},
+                        title=sec_name,
+                        properties={
+                            "Section": {"title": [{"type": "text", "text": {"content": sec_name}}]},
+                            "Group": {"select": {"name": sec_spec["group"]}},
+                            "Order": {"number": sec_spec["order"]},
+                            "What it is": {"rich_text": [{"type": "text", "text": {"content": sec_spec["what_it_is"]}}]},
+                        },
+                        children=[
+                            coloured_callout_header(sec_name, sec_spec["what_it_is"], sec_spec["icon"], sec_spec["color"]),
+                        ],
+                        icon={"type": "emoji", "emoji": sec_spec["icon"]},
+                        cover={"type": "external", "external": {"url": sec_spec["cover"]}},
+                    )
+                    self.report.objects_created.append(f"Section Card: {sec_name}")
+
+            self._mark_step_done("Sections database and gallery navigation")
 
             # 9. Initial real task created end-to-end
             self.log("Step 9/9: Creating initial task end-to-end...")
@@ -1141,10 +1523,11 @@ def run_self_test() -> int:
     t1_pass = (
         report1.success and
         len(report1.what_was_not_built) == 0 and
-        ws1.databases_created == 2 and  # Workforce and Tasks
+        ws1.databases_created == 3 and  # Workforce, Tasks, and Sections
         "Marker block" in report1.objects_created and
         "Workforce database" in report1.objects_created and
         "Tasks database" in report1.objects_created and
+        "Sections database" in report1.objects_created and
         "Page: Domains" in report1.objects_created and
         "Domain Page: Writing" in report1.objects_created
     )
@@ -1184,9 +1567,10 @@ def run_self_test() -> int:
         report2.marker_found is True and
         ws1.databases_created == initial_db_count and  # Zero new databases created!
         ws1.pages_created == initial_page_count and      # Zero new pages created!
-        report2.duplicate_databases_prevented == 2 and   # Both Workforce & Tasks reused
+        report2.duplicate_databases_prevented == 3 and   # Workforce, Tasks, and Sections reused
         "Workforce database" in report2.objects_reconciled and
-        "Tasks database" in report2.objects_reconciled
+        "Tasks database" in report2.objects_reconciled and
+        "Sections database" in report2.objects_reconciled
     )
 
     if t2_pass:
@@ -1230,10 +1614,10 @@ def run_self_test() -> int:
     # First run creates Workforce DB, but fails when creating Tasks DB (step 4)
     orig_create_db = ws3.create_database
 
-    def inject_tasks_db_fail(parent_page_id, title, properties):
+    def inject_tasks_db_fail(parent_page_id, title, properties, **kwargs):
         if title == "Tasks":
             raise RuntimeError("Simulated network timeout connecting to Notion API")
-        return orig_create_db(parent_page_id, title, properties)
+        return orig_create_db(parent_page_id, title, properties, **kwargs)
 
     ws3.create_database = inject_tasks_db_fail
 
@@ -1257,9 +1641,10 @@ def run_self_test() -> int:
     t3b_pass = (
         report3b.success is True and
         len(report3b.what_was_not_built) == 0 and
-        ws3.databases_created == 2 and  # Exactly 1 Workforce DB + 1 Tasks DB in total!
+        ws3.databases_created == 3 and  # Exactly Workforce, Tasks, and Sections in total!
         "Workforce database" in report3b.objects_reconciled and
-        "Tasks database" in report3b.objects_created
+        "Tasks database" in report3b.objects_created and
+        "Sections database" in report3b.objects_created
     )
 
     if t3a_pass and t3b_pass:
@@ -1269,11 +1654,85 @@ def run_self_test() -> int:
         failures += 1
 
     # ----------------------------------------------------------------------
+    # Test 4: Gallery styling (covers, icons, descriptions) and user customization preservation
+    # ----------------------------------------------------------------------
+    print("\n[TEST 4] Covers, icons, card descriptions and user customization preservation...")
+    ws4 = SimulatedNotionWorkspace("parent_styling")
+    orch4a = IdempotentSetupOrchestrator(ws4, answers, auto_approve=True, quiet=True)
+    report4a = orch4a.run()
+
+    # 1. Assert all 8 pages/sections have cover, icon, and description
+    parent_page = ws4.pages["parent_styling"]
+    has_home_cover = bool(parent_page.get("cover"))
+    has_home_icon = bool(parent_page.get("icon"))
+
+    sections_ds_id = orch4a.sections_ds_id
+    section_rows = ws4.data_sources[sections_ds_id].get("rows", [])
+    section_titles = {
+        r.get("properties", {}).get("Section", {}).get("title", [{}])[0].get("text", {}).get("content", "")
+        for r in section_rows
+    }
+    expected_8_sections = {"Home", "Tasks", "Workforce", "Domains", "Goals", "Knowledge", "Profile", "Logs"}
+    all_8_present = (expected_8_sections == section_titles)
+
+    all_have_styling = True
+    for r in section_rows:
+        sec_name = r.get("properties", {}).get("Section", {}).get("title", [{}])[0].get("text", {}).get("content", "")
+        desc = r.get("properties", {}).get("What it is", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "")
+        cov = r.get("cover")
+        ico = r.get("icon")
+        if not (desc and cov and ico):
+            all_have_styling = False
+
+    # 2. Simulate user customizing covers and icons before re-running setup
+    custom_home_cover = {"type": "external", "external": {"url": "https://example.com/custom_home_cover.jpg"}}
+    parent_page["cover"] = custom_home_cover
+
+    tasks_row = next(r for r in section_rows if r.get("title") == "Tasks")
+    custom_tasks_icon = {"type": "emoji", "emoji": "🎯"}
+    tasks_row["icon"] = custom_tasks_icon
+
+    custom_tasks_cover = {"type": "external", "external": {"url": "https://example.com/custom_tasks.jpg"}}
+    tasks_row["cover"] = custom_tasks_cover
+
+    # 3. Second run against the customized workspace
+    orch4b = IdempotentSetupOrchestrator(ws4, answers, auto_approve=True, quiet=True)
+    report4b = orch4b.run()
+
+    # 4. Verify customized covers and icons are preserved byte-for-byte
+    preserved_home_cover = (ws4.pages["parent_styling"].get("cover") == custom_home_cover)
+    updated_tasks_row = next(
+        r for r in ws4.data_sources[sections_ds_id].get("rows", [])
+        if r.get("properties", {}).get("Section", {}).get("title", [{}])[0].get("text", {}).get("content", "") == "Tasks"
+    )
+    preserved_tasks_icon = (updated_tasks_row.get("icon") == custom_tasks_icon)
+    preserved_tasks_cover = (updated_tasks_row.get("cover") == custom_tasks_cover)
+
+    t4_pass = (
+        report4a.success and
+        report4b.success and
+        has_home_cover and
+        has_home_icon and
+        all_8_present and
+        all_have_styling and
+        preserved_home_cover and
+        preserved_tasks_icon and
+        preserved_tasks_cover
+    )
+
+    if t4_pass:
+        print("  [PASS] Test 4: All 8 pages styled with covers, icons, descriptions; re-run preserves user customizations byte-for-byte.")
+    else:
+        print(f"  [FAIL] Test 4 failed. all_8_present={all_8_present}, all_have_styling={all_have_styling}, "
+              f"preserved_home={preserved_home_cover}, preserved_tasks_icon={preserved_tasks_icon}, preserved_tasks_cover={preserved_tasks_cover}")
+        failures += 1
+
+    # ----------------------------------------------------------------------
     # Summary
     # ----------------------------------------------------------------------
     print("\n-----------------------------------------------------------------")
     if failures == 0:
-        print("ALL 4 SELF-TEST CASES PASSED CLEANLY (0 failures).")
+        print("ALL 5 SELF-TEST CASES PASSED CLEANLY (0 failures).")
         print("Done-when requirements 1, 2, and 3 are proven.")
         print("-----------------------------------------------------------------")
         return 0

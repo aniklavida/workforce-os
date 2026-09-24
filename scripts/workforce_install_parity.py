@@ -61,6 +61,7 @@ STRUCTURE_DOC = os.path.join(REPO_ROOT, "docs", "STRUCTURE.md")
 INSTALL_INSTRUCTION = "Read this page and install Workforce OS for me"
 TASK_HEADING = "## The task database"
 WORKFORCE_HEADING = "## The Workforce database"
+SECTIONS_HEADING = "## The Sections database"
 DOMAIN_CONTEXT_MARKER = "AGENT ROUTING CONTRACT"
 
 
@@ -184,6 +185,7 @@ class InstallPageBuilder:
         )
         self.workforce_props = parse_property_names(structure_text, WORKFORCE_HEADING)
         self.task_props = parse_property_names(structure_text, TASK_HEADING)
+        self.sections_props = parse_property_names(structure_text, SECTIONS_HEADING)
         self.views = parse_view_names(structure_text)
         self.workforce_ds_id: str | None = None
         self.tasks_ds_id: str | None = None
@@ -304,6 +306,11 @@ class InstallPageBuilder:
             if not self.ws.blocks.get(row["id"]):
                 raise AssertionError(f"worker row {row['title']!r} has no startup brief")
 
+    def step_sections_database(self) -> None:
+        props = {name: {"rich_text": {}} for name in self.sections_props}
+        self.ws.create_database(self.ws.parent_page_id, "Sections", props)
+        self.step_worker_briefs()
+
     def step_initial_task(self) -> None:
         domain = self.answers.domains[0]
         self.ws.create_page(
@@ -325,6 +332,7 @@ class InstallPageBuilder:
             "section pages": self.step_section_pages,
             "domain pages": self.step_domain_pages,
             "worker startup briefs": self.step_worker_briefs,
+            "sections database": self.step_sections_database,
             "initial task": self.step_initial_task,
         }
         if not self.steps:

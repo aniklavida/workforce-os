@@ -125,9 +125,9 @@ def test_1_fresh_setup_produces_full_structure(verbose: bool = False) -> tuple[b
                 f"{', '.join(report.what_was_not_built)}"
             )
 
-        if ws.databases_created != 2:
+        if ws.databases_created != 3:
             return False, (
-                f"README claim '{claim}' is now false: expected exactly 2 databases (Workforce and Tasks), "
+                f"README claim '{claim}' is now false: expected exactly 3 databases (Workforce, Tasks, Sections), "
                 f"but found {ws.databases_created}"
             )
 
@@ -156,6 +156,39 @@ def test_1_fresh_setup_produces_full_structure(verbose: bool = False) -> tuple[b
         assigned_to = tasks_props[TASKS_ASSIGNED_TO_PROP]
         if "relation" not in assigned_to:
             return False, f"README claim '{claim}' is now false: '{TASKS_ASSIGNED_TO_PROP}' is not a relation"
+
+        # Check Sections DB properties, descriptions, and gallery view
+        sections_db = next((db for db in ws.databases.values() if db["title"][0]["text"]["content"] == "Sections"), None)
+        if not sections_db:
+            return False, f"README claim '{claim}' is now false: Sections database missing from workspace"
+
+        sec_props = sections_db.get("properties", {})
+        for prop_name in ["Section", "Group", "Order", "What it is"]:
+            if prop_name not in sec_props:
+                return False, f"README claim '{claim}' is now false: Sections property '{prop_name}' missing"
+            if not sec_props[prop_name].get("description"):
+                return False, f"README claim '{claim}' is now false: Sections property '{prop_name}' missing description"
+
+        # Verify covers, icons, and descriptions for all 8 pages
+        parent_page = ws.pages["parent_fresh_acceptance"]
+        if not parent_page.get("cover") or not parent_page.get("icon"):
+            return False, f"README claim '{claim}' is now false: Home page missing cover or icon"
+
+        sections_ds_id = sections_db["data_sources"][0]["id"]
+        sec_rows = ws.data_sources[sections_ds_id].get("rows", [])
+        expected_sections = {"Home", "Tasks", "Workforce", "Domains", "Goals", "Knowledge", "Profile", "Logs"}
+        found_sections = {
+            r.get("properties", {}).get("Section", {}).get("title", [{}])[0].get("text", {}).get("content", "")
+            for r in sec_rows
+        }
+        if expected_sections != found_sections:
+            return False, f"README claim '{claim}' is now false: Sections database missing rows: {expected_sections - found_sections}"
+
+        for r in sec_rows:
+            r_sec = r.get("properties", {}).get("Section", {}).get("title", [{}])[0].get("text", {}).get("content", "")
+            r_desc = r.get("properties", {}).get("What it is", {}).get("rich_text", [{}])[0].get("text", {}).get("content", "")
+            if not (r.get("cover") and r.get("icon") and r_desc):
+                return False, f"README claim '{claim}' is now false: Section card '{r_sec}' missing cover, icon, or description"
 
         # Check Section pages
         child_pages = ws.get_child_pages("parent_fresh_acceptance")
@@ -215,6 +248,16 @@ def test_2_setup_rerun_zero_duplicates(verbose: bool = False) -> tuple[bool, str
         dbs_after_run1 = ws.databases_created
         pages_after_run1 = ws.pages_created
 
+        # Customize a cover and an icon before second run to verify user customization preservation
+        custom_home_cover = {"type": "external", "external": {"url": "https://example.com/custom_home.jpg"}}
+        ws.pages["parent_rerun_acceptance"]["cover"] = custom_home_cover
+
+        sections_db_1 = next(db for db in ws.databases.values() if db["title"][0]["text"]["content"] == "Sections")
+        sec_ds_id_1 = sections_db_1["data_sources"][0]["id"]
+        tasks_sec_row = next(r for r in ws.data_sources[sec_ds_id_1]["rows"] if r.get("title") == "Tasks")
+        custom_tasks_icon = {"type": "emoji", "emoji": "🎯"}
+        tasks_sec_row["icon"] = custom_tasks_icon
+
         # Run setup a second time on the exact same workspace state
         orch2 = IdempotentSetupOrchestrator(ws, answers, auto_approve=True, quiet=not verbose)
         report2 = orch2.run()
@@ -233,9 +276,9 @@ def test_2_setup_rerun_zero_duplicates(verbose: bool = False) -> tuple[bool, str
             diff = ws.pages_created - pages_after_run1
             return False, f"README claim '{claim}' is now false: second run created {diff} duplicate page(s)"
 
-        if report2.duplicate_databases_prevented != 2:
+        if report2.duplicate_databases_prevented != 3:
             return False, (
-                f"README claim '{claim}' is now false: expected 2 duplicate databases prevented, "
+                f"README claim '{claim}' is now false: expected 3 duplicate databases prevented, "
                 f"got {report2.duplicate_databases_prevented}"
             )
 
@@ -245,7 +288,18 @@ def test_2_setup_rerun_zero_duplicates(verbose: bool = False) -> tuple[bool, str
         if "Tasks database" not in report2.objects_reconciled:
             return False, f"README claim '{claim}' is now false: Tasks database was not reconciled"
 
-        return True, f"Re-running created 0 duplicate databases and 0 duplicate pages; reconciled 2 databases cleanly."
+        if "Sections database" not in report2.objects_reconciled:
+            return False, f"README claim '{claim}' is now false: Sections database was not reconciled"
+
+        # Verify user customization preservation across re-runs
+        if ws.pages["parent_rerun_acceptance"].get("cover") != custom_home_cover:
+            return False, f"README claim '{claim}' is now false: user-customized Home cover was overwritten on second run"
+
+        updated_tasks_row = next(r for r in ws.data_sources[sec_ds_id_1]["rows"] if r.get("title") == "Tasks")
+        if updated_tasks_row.get("icon") != custom_tasks_icon:
+            return False, f"README claim '{claim}' is now false: user-customized Tasks icon was overwritten on second run"
+
+        return True, "Re-running created 0 duplicate databases and 0 duplicate pages; reconciled 3 databases cleanly and preserved user customizations."
 
     except Exception as exc:
         return False, f"README claim '{claim}' is now false: unhandled exception: {exc}"
@@ -599,10 +653,10 @@ def test_8_mid_setup_failure_recovery(verbose: bool = False) -> tuple[bool, str]
         # Inject failure on Tasks database creation (step 4)
         orig_create_db = ws.create_database
 
-        def inject_tasks_db_fail(parent_page_id: str, title: str, properties: dict) -> dict:
+        def inject_tasks_db_fail(parent_page_id: str, title: str, properties: dict, **kwargs) -> dict:
             if title == "Tasks":
                 raise RuntimeError("Simulated network timeout connecting to Notion API")
-            return orig_create_db(parent_page_id, title, properties)
+            return orig_create_db(parent_page_id, title, properties, **kwargs)
 
         ws.create_database = inject_tasks_db_fail
 
@@ -637,9 +691,9 @@ def test_8_mid_setup_failure_recovery(verbose: bool = False) -> tuple[bool, str]
                 f"{report_resume.what_was_not_built}"
             )
 
-        if ws.databases_created != 2:
+        if ws.databases_created != 3:
             return False, (
-                f"README claim '{claim}' is now false: expected exactly 2 databases in total, "
+                f"README claim '{claim}' is now false: expected exactly 3 databases in total, "
                 f"found {ws.databases_created}"
             )
 
@@ -651,6 +705,11 @@ def test_8_mid_setup_failure_recovery(verbose: bool = False) -> tuple[bool, str]
         if "Tasks database" not in report_resume.objects_created:
             return False, (
                 f"README claim '{claim}' is now false: Tasks database was not created on resumption"
+            )
+
+        if "Sections database" not in report_resume.objects_created:
+            return False, (
+                f"README claim '{claim}' is now false: Sections database was not created on resumption"
             )
 
         return True, "Interruption cleanly caught with what-was-built report; resumed setup completed with 0 duplicate databases."

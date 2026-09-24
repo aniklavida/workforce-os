@@ -76,6 +76,19 @@ The Assistant applies this at assignment time. Notion does not enforce it.
 See [`ARCHITECTURE.md`](ARCHITECTURE.md#verification-status-of-the-workforce-schema)
 for what has been verified locally versus what still needs a live workspace.
 
+## The Sections database — gallery navigation
+
+A dedicated Sections database powers gallery navigation with page covers. Each row is an actual section page rather than a stub link.
+
+| Property | Type | Written by |
+|---|---|---|
+| Section | Title — the section page title | assistant |
+| Group | Select — `Work` / `You` / `Engine` | assistant |
+| Order | Number — position within band | assistant |
+| What it is | Text — one-line card description | assistant |
+
+The database view is a gallery previewing page covers and grouped into bands (`Work`, `You`, `Engine`). Every page receives an icon from a consistent emoji family, an Unsplash cover image, a coloured callout header for visual separation, and a two-column layout where it reduces vertical scrolling without exceeding two columns.
+
 ## Pages
 
 ```

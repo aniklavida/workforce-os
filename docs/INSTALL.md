@@ -56,7 +56,7 @@ same order the plugin's build script uses (`scripts/workforce_setup.py`).
    Someday.
 6. Section pages: Domains, Goals, Knowledge, Profile, Logs.
 7. Domain pages under Domains, each declaring its agent read context.
-8. Worker startup briefs written into each Workforce row body.
+8. Sections database and gallery navigation view (properties: Section, Group, Order, What it is; worker startup briefs in Workforce rows).
 9. Initial task created end to end.
 
 ## Idempotency rule
