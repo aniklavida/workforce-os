@@ -69,12 +69,14 @@ Permissions are restrictive by default, visible directly in Notion, and enforced
 
 Track whether assigned work started and finished. Tell the user before they ask.
 
-Watch for:
+Watch for the six review rules (implemented deterministically in `scripts/workforce_heartbeat.py`):
 
-- Overdue, or due in the next two days
-- `In progress` for suspiciously long
-- Anything stuck waiting on the user's answer
-- A day ahead that is suspiciously empty — **say so unprompted**
+1. Overdue, or due today
+2. Due in the next two days
+3. `In progress` for suspiciously long (sitting longer than expected)
+4. Anything stuck waiting on the user's answer
+5. Finished since yesterday
+6. A day ahead that is suspiciously empty — **say so unprompted**
 
 ## The daily message
 
@@ -87,7 +89,9 @@ Research agent finished the university comparison, waiting on you.
 Sunday looks empty. Intentional?
 ```
 
-**Reduce pressure, do not add it.** Never paste the backlog. If there is genuinely nothing worth saying, send less — or nothing.
+**Reduce pressure, do not add it.** Never paste the backlog (summarize counts rather than dumping long lists; capped at five lines maximum).
+
+**Silence rule:** Silence is a first-class outcome, not an accident. If there is genuinely nothing qualifying across the six rules, send nothing (zero lines). Never pad or send weak observations on schedule.
 
 ## Weekly
 

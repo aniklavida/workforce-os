@@ -80,6 +80,7 @@ from workforce_capture import (
     capture_and_structure_thought,
     capture_thought_idempotent,
 )
+from workforce_heartbeat import evaluate_review_protocol
 
 # --------------------------------------------------------------------------
 # Registry of Public Claims Mapped to Tests
@@ -512,80 +513,9 @@ def test_5_domain_declared_read_scope_transcript(verbose: bool = False) -> tuple
 # Tests 6+7 (Merged per rescope): Review Protocol Checklist and Silence Rule
 # --------------------------------------------------------------------------
 
-def evaluate_review_protocol(
-    tasks: list[dict],
-    current_date: str = "2026-09-24",
-    upcoming_schedule: dict[str, int] | None = None,
-) -> list[str]:
-    """Review protocol checklist evaluation under AGENTS.md section 8 and SPEC.md.
-
-    Evaluates:
-      - Due today, or overdue
-      - Sitting In progress longer than expected or waiting on user
-      - Finished recently
-      - Suspiciously empty upcoming days (1-2 days ahead)
-
-    Produces 3-5 concise lines if items qualify, or zero lines (silence) if
-    nothing qualifies. Asserted with no scheduler, no timezone-firing, and no
-    continuous runtime.
-    """
-    lines: list[str] = []
-
-    # 1. Due today or overdue
-    due_or_overdue = []
-    for t in tasks:
-        status = t.get("Status") or t.get("status")
-        if status == "Done":
-            continue
-        due = t.get("Due Date") or t.get("due_date")
-        if due and str(due) <= current_date:
-            due_or_overdue.append(t.get("Task") or t.get("title") or "Untitled")
-
-    if due_or_overdue:
-        count = len(due_or_overdue)
-        titles = ", ".join(due_or_overdue)
-        lines.append(f"{count} due today or overdue — {titles}.")
-
-    # 2. In progress / stalled / waiting on user
-    waiting_on_user = []
-    in_progress_other = []
-    for t in tasks:
-        status = t.get("Status") or t.get("status")
-        if status != "In progress":
-            continue
-        title = t.get("Task") or t.get("title") or "Untitled"
-        agent_notes = (t.get("Agent Notes") or "").lower()
-        if "waiting on user" in agent_notes or "waiting on you" in agent_notes:
-            waiting_on_user.append(title)
-        else:
-            in_progress_other.append(title)
-
-    if waiting_on_user:
-        lines.append(f"In progress, waiting on user: {', '.join(waiting_on_user)}.")
-    elif in_progress_other:
-        lines.append(f"In progress: {', '.join(in_progress_other)}.")
-
-    # 3. Finished today / recently
-    finished_recent = []
-    for t in tasks:
-        status = t.get("Status") or t.get("status")
-        if status == "Done":
-            done_date = t.get("Done Date") or t.get("done_date")
-            if done_date and str(done_date) >= current_date:
-                finished_recent.append(t.get("Task") or t.get("title") or "Untitled")
-
-    if finished_recent:
-        lines.append(f"Finished today: {', '.join(finished_recent)}.")
-
-    # 4. Suspiciously empty upcoming days
-    if upcoming_schedule:
-        for day_label, task_count in upcoming_schedule.items():
-            if task_count == 0:
-                lines.append(f"{day_label} looks empty. Intentional?")
-                break
-
-    # Silence rule: if nothing qualifies, returns empty list (0 lines)
-    return lines
+# Note: evaluate_review_protocol is imported from workforce_heartbeat.py
+# (first-class review protocol checklist module implementing the six locked rules
+# and the silence rule, eliminating duplication with this acceptance suite).
 
 
 def test_6_7_review_protocol_checklist_and_silence(verbose: bool = False) -> tuple[bool, str]:
