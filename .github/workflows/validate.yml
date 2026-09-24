@@ -65,3 +65,7 @@ jobs:
         run: |
           python3 scripts/workforce_acceptance.py
 
+      - name: Run install-by-prompt parity proof
+        run: |
+          python3 scripts/workforce_install_parity.py
+

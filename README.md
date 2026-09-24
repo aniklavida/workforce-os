@@ -32,6 +32,7 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 
 - [`AGENTS.md`](AGENTS.md) — the operating contract.
 - [`docs/STRUCTURE.md`](docs/STRUCTURE.md) — current Notion structure.
+- [`docs/INSTALL.md`](docs/INSTALL.md) — the install page: one pasteable instruction, the five setup questions, the build order and the idempotency rule, pointing at `AGENTS.md` and `docs/STRUCTURE.md` rather than copying them.
 - `agents/` — assistant, advisor and specialist profiles.
 - `commands/` — capture, daily review, planning review and assignment flows.
 - `skills/` — Claude Code setup and operating skills.
@@ -39,6 +40,7 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 - `scripts/workforce_capture.py` — fixture capture idempotency, chat question delivery, assignment gate integration, and specialist resolution; `--self-test` proves zero duplicate rows, zero repeated questions, and strict gate routing without a live agent.
 - `scripts/workforce_schema.py` — the Workforce database schema, `Assigned To` relation payloads, and the assignment gate; `--dry-run` and `--self-test` run without a workspace, `--live` creates the database once a credential is supplied.
 - `scripts/workforce_setup.py` — idempotent setup orchestration that builds the entire structure from five answers, discovers markers, reconciles existing objects, and converges with zero duplicates.
+- `scripts/workforce_install_parity.py` — mechanical self-consistency proof that `docs/INSTALL.md`'s literal build steps produce the same workspace structure as the plugin's `workforce_setup.py` build path (fixtures, no network). It does not prove any real non-Claude-Code host follows the page.
 - `scripts/workforce_migration.py` — select-to-relation migration preserving user-authored notes byte-for-byte.
 - `scripts/workforce_permission.py` — three-layer permission engine (domain scope, declared read scope, action gate) and multi-worker queue isolation.
 - `scripts/workforce_content_boundary.py` — deterministic prompt injection boundary treating untrusted content as data rather than instructions.
@@ -73,7 +75,9 @@ The plugin is packaged for Claude Code, but a verified release has not yet been 
 
 ### Codex and other MCP-capable agents
 
-`AGENTS.md` and `docs/STRUCTURE.md` are portable Markdown — no plugin required. Codex reads `AGENTS.md` directly by convention; any other agent that can read files and reach Notion over MCP could follow the same protocol. This path is **planned, not yet verified end to end** — Claude Code is the only tested path today, and all other agent hosts are planned. Chat delivery is whatever your agent already supports; Workforce OS has no channel code of its own.
+`AGENTS.md` and `docs/STRUCTURE.md` are portable Markdown — no plugin required. [`docs/INSTALL.md`](docs/INSTALL.md) carries one pasteable instruction ("read this page and install Workforce OS for me") plus the five setup questions, the build order and the idempotency rule; it points at `AGENTS.md` and `docs/STRUCTURE.md` rather than copying them. Codex reads `AGENTS.md` directly by convention, and any other agent that can read files and reach Notion over MCP could follow the same protocol.
+
+This path is **planned and not yet verified end to end**. No host other than Claude Code is claimed. `scripts/workforce_install_parity.py` proves the install page's literal steps are self-consistent and complete against the plugin's fixture build path; it does **not** prove that a real Codex, Cursor, Gemini CLI, or other host follows the page correctly. The phrase "works with any agent" is deliberately never used — only hosts actually tried are named, and beyond the self-consistency check none have been. Chat delivery is whatever your agent already supports; Workforce OS has no channel code of its own.
 
 ## Version 1.0 direction
 
