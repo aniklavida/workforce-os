@@ -56,7 +56,12 @@ jobs:
 
       - name: No secrets committed
         run: |
-          if git grep -nEI '(secret_[A-Za-z0-9]{20,}|ntn_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|[0-9]{8,10}:AA[A-Za-z0-9_-]{30,})' -- . ; then
+          if git grep -nEI '(secret_[A-Za-z0-9]{20,}|nt[n]_[A-Za-z0-9]{20,}|gh[pousr]_[A-Za-z0-9]{20,}|[0-9]{8,10}:AA[A-Za-z0-9_-]{30,})' -- . ; then
             echo "::error::possible credential committed"; exit 1
           fi
           echo "clean"
+
+      - name: Run acceptance test suite
+        run: |
+          python3 scripts/workforce_acceptance.py
+
