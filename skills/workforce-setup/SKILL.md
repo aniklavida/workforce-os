@@ -215,14 +215,14 @@ This is what separates a template that looks professional from one that looks im
 
 Create a **Sections** database. Each row **is** an actual section page, so clicking a gallery item opens the real thing rather than a stub. Display it as a **gallery with page covers as the gallery preview**, grouped by band.
 
-| Property | Type | Purpose |
-|---|---|---|
-| Section | Title | |
-| Group | Select — `Work` / `You` / `Engine` | Groups the gallery into bands |
-| Order | Number | Controls item order within a band |
-| What it is | Text | The one line shown on each item |
+| Property | Type | Purpose | Written by |
+|---|---|---|---|
+| Section | Title | The display title of the section | Assistant |
+| Group | Select — `Work` / `You` / `Engine` | Groups the gallery into bands | Assistant |
+| Order | Number | Controls item order within a band | Assistant |
+| What it is | Text | The one-line card description shown on each item | Assistant |
 
-Give every section page a **cover image and an emoji icon**. The cover provides visual art; without it the gallery renders as empty grey rectangles and looks worse than a plain list.
+Give every page (Home, Tasks, Workforce, Domains, Goals, Knowledge, Profile, Logs) a **cover image and an emoji icon** from a consistent icon family. The cover provides visual art; without it the gallery renders as empty grey rectangles. Coloured callout headers substitute for borders/section separation, and two-column layout reduces scrolling on desktop while collapsing cleanly on mobile (never three columns on phone). A second run of setup must never disturb covers or icons the user has customized.
 
 ## Build order
 
