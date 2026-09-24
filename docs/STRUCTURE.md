@@ -1,6 +1,6 @@
 # Structure
 
-For agents that are not Claude Code (planned, unverified): this is what Workforce OS looks like, so you can build or operate it yourself.
+For agents that are not Claude Code (planned, unverified): this is what Workforce OS looks like, so you can build or operate it yourself. The pasteable install instruction is in [`INSTALL.md`](INSTALL.md); it points here rather than copying this page. No host other than Claude Code has been tried — see *Hosts actually tried* in `INSTALL.md`.
 
 > **API addressing.** The 2025-09-03 Notion API makes the **data source** the
 > primary abstraction. When you read or write rows through the API or MCP, you
