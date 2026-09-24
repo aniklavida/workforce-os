@@ -91,6 +91,22 @@ Logs          daily work log + weekly summaries
 
 The parent page carries the Workforce OS marker (`[workforce-os:root]`). Setup is idempotent: re-running setup discovers existing objects and reconciles missing properties and views without creating duplicate databases or pages.
 
+### The Home view
+
+Home is the single screen that answers "what needs me today". It groups into exactly:
+- **Today** — due today or overdue, or in progress
+- **Waiting on you** — in progress and waiting on user clarification or approval
+- **Upcoming** — due in the next two calendar days
+- **This week** — due within the current week
+
+Nothing else competes for that space.
+
+Home enforces a strict **mobile readability constraint**: it contains zero wide tables (`type: "table"` is prohibited in Home). The layout uses Notion's mobile-friendly block types (list-layout linked views, callouts, headings, and bulleted lists) so the entire page is legible on a phone without horizontal scrolling.
+
+**Empty states:**
+- **No tasks in workspace:** Displays a single-line directive on what to do first (`No tasks yet. Capture your first task in chat (e.g., 'Draft project brief') to get started.`) — never a blank page.
+- **Nothing worth reporting:** Matches the review protocol silence rule exactly — both agree on the exact same condition and silence outcome.
+
 ## Domains do two jobs
 
 They are how the user navigates, and how an agent decides what to load.
