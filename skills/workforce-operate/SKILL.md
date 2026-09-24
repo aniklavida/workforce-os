@@ -20,11 +20,13 @@ Read [`AGENTS.md`](../../AGENTS.md) first. It is the contract. This skill is how
 
 The user sends something short and half-formed. Take it. Do not interrogate them.
 
-**Immediately:** create the row with whatever you have. A title alone is enough. Losing a thought because you wanted a due date first is the worst possible outcome.
+**First, check existing tasks:** if this thought is already captured, do not create a duplicate row and do not re-ask questions that were already asked or answered.
 
-**Then, on review:** fill what you can safely infer from their pages and this conversation. For what remains, ask one to three short questions in plain language.
+**If new, immediately:** create the row with whatever you have (create-first, complete-second). A title alone is enough. Losing a thought because you wanted a due date first is the worst possible outcome.
 
-**Then write it up.** Their casual answer becomes a proper next action and a proper done-condition — written by you.
+**Then, on review:** fill what you can safely infer from their pages and this conversation. For what remains, ask one to three short questions in chat (never in Notion) in plain language. Never ask which field to set, and never ask the same question twice.
+
+**Then write it up.** Their casual answer becomes a proper next action and a proper done-condition — written by you. User writes Notes; agents write Agent Notes or the task page body.
 
 ```
 User:  "need to sort the company registration thing before it gets late"
@@ -43,13 +45,15 @@ Notice what did not happen: you did not ask which priority, which domain, or wha
 
 `Assigned To` decides everything. It is a relation to one Workforce row. A row with `Kind = Human` means the user does it; a row with `Kind = Agent` means that agent picks it up.
 
-As the assistant, you assign — **you do not do specialist work.** Research, writing, code, comparisons: those go to a specialist. If no specialist exists for the job, say so plainly and offer to add a Worker row — adding one from Notion needs no repository change. Do not quietly do it yourself; that is how an assistant turns into a bottleneck.
+As the assistant, you assign — **you do not do specialist work.** Research, writing, code, comparisons: those go to a specialist. If no specialist exists for the job, say so plainly in chat and offer to add a Worker row — adding one from Notion needs no repository change. Do not assign it to the assistant. Do not quietly do it yourself; that is how an assistant turns into a bottleneck. Leave the task unassigned in the queue.
 
 **Apply the assignment gate before you write `Assigned To`** — Notion will not do it for you:
 
-- Empty `Domains` means **none**, not all. A worker with no domains may not be assigned anything.
+- Empty `Domains` means **none**, not all. A worker with no domains may not load context for, or act on, any domain.
 - A `Paused` worker receives **no new assignments**.
 - The worker's `Domains` must include the task's `Domain`.
+- If the task involves the sensitive `Profile` domain, confirm the worker has an explicit, loggable grant.
+- If assignment is blocked, state why in one clear line in chat and `Agent Notes`.
 
 If your only candidate fails the gate, say so in chat and ask whether to widen the worker's scope, unpause it, or create a new worker. Never bend the gate to get the task moving.
 

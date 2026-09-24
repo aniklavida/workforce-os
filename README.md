@@ -36,6 +36,7 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 - `commands/` — capture, daily review, planning review and assignment flows.
 - `skills/` — Claude Code setup and operating skills.
 - `scripts/workforce_acceptance.py` — acceptance test suite proving public documentation claims against fixtures.
+- `scripts/workforce_capture.py` — fixture capture idempotency, chat question delivery, assignment gate integration, and specialist resolution; `--self-test` proves zero duplicate rows, zero repeated questions, and strict gate routing without a live agent.
 - `scripts/workforce_schema.py` — the Workforce database schema, `Assigned To` relation payloads, and the assignment gate; `--dry-run` and `--self-test` run without a workspace, `--live` creates the database once a credential is supplied.
 - `scripts/workforce_setup.py` — idempotent setup orchestration that builds the entire structure from five answers, discovers markers, reconciles existing objects, and converges with zero duplicates.
 - `scripts/workforce_migration.py` — select-to-relation migration preserving user-authored notes byte-for-byte.
