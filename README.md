@@ -35,9 +35,32 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 - `agents/` — assistant, advisor and specialist profiles.
 - `commands/` — capture, daily review, planning review and assignment flows.
 - `skills/` — Claude Code setup and operating skills.
-- `scripts/workforce_schema.py` — the Workforce database schema and the `Assigned To` relation in executable form, plus the assignment gate; `--dry-run` and `--self-test` run without a workspace, `--live` creates the database once a credential is supplied.
+- `scripts/workforce_acceptance.py` — acceptance test suite proving public documentation claims against fixtures.
+- `scripts/workforce_schema.py` — the Workforce database schema, `Assigned To` relation payloads, and the assignment gate; `--dry-run` and `--self-test` run without a workspace, `--live` creates the database once a credential is supplied.
+- `scripts/workforce_setup.py` — idempotent setup orchestration that builds the entire structure from five answers, discovers markers, reconciles existing objects, and converges with zero duplicates.
+- `scripts/workforce_migration.py` — select-to-relation migration preserving user-authored notes byte-for-byte.
+- `scripts/workforce_permission.py` — three-layer permission engine (domain scope, declared read scope, action gate) and multi-worker queue isolation.
+- `scripts/workforce_content_boundary.py` — deterministic prompt injection boundary treating untrusted content as data rather than instructions.
 - `scripts/notion_roundtrip_proof.py` — a throwaway probe that measures Notion rate limits and formatting round-trip fidelity, feeding [`docs/NOTION_ROUNDTRIP.md`](docs/NOTION_ROUNDTRIP.md).
 - `.claude-plugin/` — Claude Code plugin metadata.
+
+## Acceptance test suite
+
+Every public claim made by this project is verified against fixture Notion workspace state with one command:
+
+```bash
+python3 scripts/workforce_acceptance.py
+```
+
+The suite runs nine tests (eight execution tests post-rescope plus a claim-by-claim README audit):
+1. **Fresh setup:** builds the complete Notion structure from five answers with zero manual fixes.
+2. **Zero duplicates:** re-running setup reconciles existing objects and produces zero duplicate databases or pages.
+3. **Capture transformation:** rough, half-formed input produces a structured task (next action, done-condition, domain, dates) without manual field editing.
+4. **Queue isolation:** a task assigned to a worker is read and executed by that worker only; cross-worker execution is rejected.
+5. **Declared read scope:** an agent working a task loads only its Domain's declared pages (verified via fixture transcript); undeclared or sensitive pages (`Profile`) are blocked.
+6+7. **Review protocol & silence rule:** evaluates overdue, due-soon, stalled, and waiting work to produce 3–5 lines, and produces zero lines (silence) when nothing qualifies — verified without a scheduler, daemon, or deployment.
+8. **Interruption recovery:** mid-setup API interruption generates a clear what-was-built report and subsequent re-run resumes cleanly without duplicating objects.
+9. **Public claim audit:** audits this README claim by claim, verifying that every demonstrated behavior has a passing test and every unverified path is explicitly labelled planned or pre-release.
 
 ## Current installation status
 
@@ -53,7 +76,7 @@ The plugin is packaged for Claude Code, but a verified release has not yet been 
 
 ## Version 1.0 direction
 
-Version 1.0 will complete the Workforce database and relation-based assignment model, idempotent Notion setup, verified cross-agent installation guidance (Claude Code today, Codex and others as they are tested), permissions, and a full clean-install/release proof. The Workforce database and the `Assigned To` relation are now specified in the setup skill and encoded in `scripts/workforce_schema.py`, with a documented migration from the old select; the schema has been checked locally but not yet created against a live workspace. Version 1.0 will not add a runtime, a scheduler or channel adapters — those stay out of scope permanently.
+Version 1.0 will complete verified cross-agent installation guidance (Claude Code today, Codex and others as they are tested) and a full clean-install/release proof. The Workforce database, relation-based assignment model, idempotent setup, permissions, handoffs, and content boundaries are now implemented and verified in the acceptance suite against fixtures; live workspace creation remains to be confirmed once credentials are supplied. Version 1.0 will not add a runtime, a scheduler or channel adapters — those stay out of scope permanently.
 
 See:
 
