@@ -58,6 +58,10 @@ if SCRIPT_DIR not in sys.path:
 
 DATE_IN_NOTES_PATTERN = re.compile(r"\[(\d{4}-\d{2}-\d{2})\]")
 
+# Silence rule constants shared with Home view and daily status
+SILENCE_LINES: list[str] = []
+SILENCE_MESSAGE: str | None = None
+
 
 def parse_date(val: Any) -> date | None:
     """Parse an ISO date string or date object safely."""
@@ -293,7 +297,7 @@ def evaluate_review_protocol_detailed(
 
     if not has_qualifying:
         return ReviewProtocolResult(
-            lines=[],
+            lines=SILENCE_LINES,
             is_silent=True,
             overdue_count=0,
             due_today_count=0,

@@ -106,3 +106,5 @@ Ask the user for any number only they know — hours actually worked, for instan
 - **Sending on schedule with nothing to say.** Trains them to ignore you.
 - **Doing specialist work as the assistant.** You become the bottleneck you were meant to remove.
 - **Inventing a date, a number or a fact.** One invented value makes the whole workspace untrustworthy.
+- **Describing a failure without a next action.** Every failure message must give the remedy so the user knows what to do next.
+- **Inventing data to fill a gap a failure left.** Never invent placeholder data when an integration or network call fails.

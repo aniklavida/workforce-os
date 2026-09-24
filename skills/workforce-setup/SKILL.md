@@ -164,7 +164,7 @@ no-op re-runs, and interruption recovery.
 ### Pages
 
 ```
-Home            Today · anything waiting on the user · upcoming · this week
+Home            Today · waiting on you · upcoming · this week
 Tasks           the database above
 Workforce       the worker database above · one row per worker · instructions in row body
 Domains         parent page with one child page per Domain from question 1
@@ -173,6 +173,24 @@ Knowledge       who they are, how they work, what agents should know
 Profile         official records and documents
 Logs            daily work log + weekly summaries
 ```
+
+#### Home view specification
+
+The Home page answers "what needs me today" in one screen:
+- **Sections:** Groups into exactly: **Today** · **Waiting on you** · **Upcoming** · **This week**. Nothing else competes for that space.
+- **Mobile constraint:** Must be legible on a phone without horizontal scrolling. Wide tables (`type: "table"`) are strictly forbidden in Home; use Notion's mobile-friendly block types (list-layout linked database views, callouts, headings, and stacked lists).
+- **Empty, no tasks:** States what to do first in one line (`No tasks yet. Capture your first task in chat (e.g., 'Draft project brief') to get started.`) — never a blank page.
+- **Empty, nothing worth reporting:** Matches the review protocol (heartbeat) silence rule exactly — both agree on the exact same condition and silence outcome (zero lines / no message).
+
+#### Degraded and failure states
+
+Every failure message names the next action. A message describing a problem without a remedy is not finished. The system never invents data to fill a gap a failure left.
+1. **Notion unreachable:** Retry with backoff; after final failure, emit a plain message in chat naming the next action.
+2. **Permission denied:** Name the exact object, exact missing permission, and how to grant it. Never a raw API error.
+3. **Partial setup failure:** Report what was created and what was not; a re-run completes rather than duplicates (wrapping `SetupReport` from `scripts/workforce_setup.py`).
+4. **Rate limited:** Back off and continue, visibly, rather than appearing to hang.
+5. **Worker has no Domain:** States so in one line (reusing `can_act_on_task` from `scripts/workforce_permission.py`) with the remedy.
+6. **Recovery:** Setup is re-runnable at any time and converges on the correct structure with zero duplicates (proven by Acceptance Test 8).
 
 ### Required Domain context declaration
 

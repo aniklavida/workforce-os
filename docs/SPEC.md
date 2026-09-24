@@ -54,7 +54,7 @@ It is not positioned as a generic life-OS template. A user may organize personal
 ## Information architecture
 
 ```text
-Home          today, waiting, upcoming and recent progress
+Home          today · waiting on you · upcoming · this week
 Tasks         one shared work database
 Workforce     worker profiles, roles, channels and permissions
 Domains       one page per context boundary
@@ -96,6 +96,33 @@ Record the reason, change the assigned worker and preserve task status unless th
 ### Heartbeat (review protocol)
 
 A run — triggered by whatever schedule the connecting agent provides, not by Workforce OS — evaluates overdue work, work due soon, stalled work, waiting-on-user items, recent completions and suspiciously empty plans. It reports three to five useful lines through the agent's own chat surface or remains silent. Workforce OS defines the checklist and the silence rule; the agent supplies the schedule and the channel.
+
+### Home view and degraded states
+
+Workforce OS ships no runtime and no rendered UI of its own — "Home" is a Notion view/page the setup skill creates, not an application screen this repository renders.
+
+The Home view groups into exactly four sections:
+- **Today** — tasks due on or before today, or in progress
+- **Waiting on you** — tasks in progress waiting on user input or review
+- **Upcoming** — tasks due within the next two calendar days
+- **This week** — tasks due within the current week
+
+Nothing else competes for that space.
+
+**Mobile constraint:** The Home view must be legible on a phone without horizontal scrolling. No wide tables (`type: "table"`) are permitted; the view uses Notion's mobile-friendly block types (list-layout linked database views, callouts, headings, and stacked lists).
+
+**Empty states:**
+- **Empty, no tasks:** Home states what to do first, in one line (`No tasks yet. Capture your first task in chat (e.g., 'Draft project brief') to get started.`) — never a blank page.
+- **Empty, nothing worth reporting:** Matches the review protocol (heartbeat) silence rule exactly — both agree on the exact same condition and silence outcome (zero lines / no message).
+
+**Degraded and failure states:**
+Every failure message names the next action. A message describing a problem without a remedy is not finished. The system never invents data to fill a gap a failure left.
+1. **Notion unreachable:** Retry with backoff; after final failure, a plain message in chat naming the next action.
+2. **Permission denied:** Name the exact object, exact missing permission, and how to grant it. Never a raw API error.
+3. **Partial setup failure:** Report what was created and what was not; re-run completes rather than duplicates (wrapping `SetupReport` from `workforce_setup.py`).
+4. **Rate limited:** Back off and continue, visibly, rather than appearing to hang.
+5. **Worker has no Domain:** States so in one line (reusing `can_act_on_task` from `workforce_permission.py`) with the remedy.
+6. **Recovery:** Setup is re-runnable at any time and converges on the correct structure (proven by Acceptance Test 8).
 
 ## Complete v1.0 scope
 

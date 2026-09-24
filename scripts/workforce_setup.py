@@ -1051,6 +1051,11 @@ class IdempotentSetupOrchestrator:
             self.log("Failure report:")
             self.log(f"  What was built: {', '.join(self.report.what_was_built) or 'Nothing'}")
             self.log(f"  What was NOT built: {', '.join(self.report.what_was_not_built)}")
+            try:
+                from workforce_home import format_partial_setup_failure_message
+                self.log("\nUser-facing status:\n" + format_partial_setup_failure_message(str(exc), self.report.what_was_built, self.report.what_was_not_built))
+            except ImportError:
+                pass
             return self.report
 
     def _mark_step_done(self, step_name: str) -> None:
