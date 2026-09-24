@@ -46,6 +46,7 @@ from workforce_schema import (
     WORKER_STATUSES,
     WORKFORCE_TITLE_PROP,
     agent_worker,
+    assistant_worker,
     can_assign,
     human_worker,
     tasks_assigned_to_relation,
@@ -73,6 +74,11 @@ from workforce_permission import (
     start_task_execution,
     update_task_field,
     validate_field_write_permission,
+)
+from workforce_capture import (
+    assign_captured_task,
+    capture_and_structure_thought,
+    capture_thought_idempotent,
 )
 
 # --------------------------------------------------------------------------
@@ -248,57 +254,6 @@ def test_2_setup_rerun_zero_duplicates(verbose: bool = False) -> tuple[bool, str
 # Test 3: Rough Capture Transformation
 # --------------------------------------------------------------------------
 
-def capture_and_structure_thought(
-    raw_message: str,
-    available_domains: list[str],
-    user_name: str = "Anik",
-    current_date: str = "2026-09-24",
-) -> dict[str, Any]:
-    """Transform rough user input into a structured task record under AGENTS.md rule 2.
-
-    The user sends something short and half-formed. The agent creates the row,
-    infers domain, sets next action, done when, priority, and dates, with no field
-    edited by hand.
-    """
-    clean = raw_message.strip()
-    lower = clean.lower()
-
-    # Documented capture example 1: AGENTS.md section 2
-    if "telegram" in lower or "amazon" in lower:
-        task_title = "Apply for an Amazon Associates affiliate account"
-        next_action = "Apply for an Amazon Associates affiliate account; add eBay and Etsy once approved."
-        done_when = "Amazon affiliate approved and able to generate links."
-        domain = "Writing" if "Writing" in available_domains else available_domains[0]
-        priority = "High"
-    # Documented capture example 2: skills/workforce-operate/SKILL.md
-    elif "company registration" in lower:
-        task_title = "Register the company"
-        next_action = "Confirm the registration fee and start the filing"
-        done_when = "Registration certificate in hand"
-        domain = "Consulting" if "Consulting" in available_domains else available_domains[0]
-        priority = "High"
-    else:
-        task_title = clean.capitalize()
-        next_action = f"Clarify initial step and execute {task_title}"
-        done_when = f"Completion criteria met for {task_title}"
-        domain = available_domains[0]
-        priority = "Medium"
-
-    return {
-        "Task": task_title,
-        "Next Action": next_action,
-        "Done When": done_when,
-        "Domain": domain,
-        "Priority": priority,
-        "Status": "Planned",
-        "Type": "Task",
-        "Start Date": current_date,
-        "Due Date": None,
-        "Notes": "",  # User only — agents never write here
-        "Agent Notes": f"[{current_date}] Assistant: Structured rough thought into actionable task without manual field editing.",
-    }
-
-
 def test_3_rough_message_capture_transformation(verbose: bool = False) -> tuple[bool, str]:
     """Test 3: Rough one-line message produces structured task without manual field editing."""
     claim = PUBLIC_CLAIMS_MAP[3]
@@ -342,10 +297,76 @@ def test_3_rough_message_capture_transformation(verbose: bool = False) -> tuple[
             if not task_b.get(req):
                 return False, f"README claim '{claim}' is now false: required field '{req}' was missing from structured task"
 
+        # Case C: Idempotent capture (repeating identical capture produces 0 duplicate rows and 0 repeated questions)
+        fixture_tasks_db: list[dict[str, Any]] = []
+        chat_history: list[str] = []
+        clarifications = ["Clarify affiliate program requirements?"]
+
+        c1 = capture_thought_idempotent(
+            raw_a,
+            fixture_tasks_db,
+            chat_history=chat_history,
+            available_domains=available_domains,
+            candidate_questions=clarifications,
+        )
+        if not c1.created or len(fixture_tasks_db) != 1 or len(c1.questions_asked) != 1:
+            return False, f"README claim '{claim}' is now false: initial capture failed to create task or ask question"
+
+        # Re-capture identical message
+        c2 = capture_thought_idempotent(
+            raw_a,
+            fixture_tasks_db,
+            chat_history=chat_history,
+            available_domains=available_domains,
+            candidate_questions=clarifications,
+        )
+        if c2.created:
+            return False, f"README claim '{claim}' is now false: second capture created a duplicate task row"
+        if not c2.duplicate_detected:
+            return False, f"README claim '{claim}' is now false: duplicate capture was not detected"
+        if len(fixture_tasks_db) != 1:
+            return False, f"README claim '{claim}' is now false: expected exactly 1 task row in database, found {len(fixture_tasks_db)}"
+        if len(c2.questions_asked) != 0:
+            return False, f"README claim '{claim}' is now false: re-capture repeated questions: {c2.questions_asked}"
+
+        # Case D: Assignment strictly resolves through shared permission gate from workforce_permission.py
+        workers = [
+            agent_worker("AliceSpecialist", ["Writing"], status="Active"),
+            agent_worker("BobPaused", ["Writing"], status="Paused"),
+        ]
+        assign_res = assign_captured_task(c1.task, workers)
+        if not assign_res.assigned or assign_res.worker_name != "AliceSpecialist":
+            return False, f"README claim '{claim}' is now false: assignment failed to route to active specialist AliceSpecialist"
+        if c1.task.get("Assigned To") != "AliceSpecialist":
+            return False, f"README claim '{claim}' is now false: Assigned To was not set on task"
+
+        # Case E: Nonexistent specialist states plainly and refuses Assistant assignment or silent completion
+        workers_with_assistant = [
+            assistant_worker("GeneralAssistant", domains=["Engineering", "Writing", "Consulting"]),
+            agent_worker("WritingSpecialist", domains=["Writing"], status="Active"),
+        ]
+        engineering_task = {
+            "Task": "Build database connector",
+            "Next Action": "Write connection pool logic",
+            "Done When": "Pool connects cleanly",
+            "Domain": "Engineering",
+            "Status": "Planned",
+        }
+        assign_eng = assign_captured_task(engineering_task, workers_with_assistant)
+        if assign_eng.assigned:
+            return False, f"README claim '{claim}' is now false: task assigned when no specialist existed"
+        if engineering_task.get("Assigned To") is not None:
+            return False, f"README claim '{claim}' is now false: task was illegally assigned to Assistant or other worker"
+        if engineering_task.get("Status") != "Planned":
+            return False, f"README claim '{claim}' is now false: task status changed from Planned without assignment"
+        if "No specialist exists for domain 'Engineering'" not in assign_eng.reason:
+            return False, f"README claim '{claim}' is now false: missing plain statement that no specialist exists"
+
         msg = (
             "Rough input transformed into structured task with next action, done when, domain, "
-            "and dates; zero fields edited by hand. "
-            "(Capture logic is specified as protocol prose in AGENTS.md; verified against fixture-level transformation of documented rule.)"
+            "and dates; zero fields edited by hand. Repeating identical capture produces zero "
+            "duplicate rows and zero repeated questions; assignment strictly routes through shared "
+            "permission gate and plainly refuses Assistant fallback when no specialist exists."
         )
         return True, msg
 

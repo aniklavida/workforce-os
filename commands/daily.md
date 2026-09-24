@@ -12,6 +12,6 @@ Check:
 - Finished since yesterday
 - Any day ahead that is suspiciously empty
 
-Write **three to five lines**. Reduce pressure, do not add it — never paste the backlog.
-
-If there is genuinely nothing worth saying, say that in one line instead of padding.
+Send in chat, never in Notion. Write **three to five lines**. Reduce pressure, do not add it — never paste the backlog.
+ 
+If there is genuinely nothing worth saying, send less — or stay silent. Silence is correct when there is nothing worth saying; never pad or send weak observations on schedule.
