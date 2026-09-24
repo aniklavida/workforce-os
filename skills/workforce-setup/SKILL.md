@@ -30,7 +30,7 @@ Do not build a generic workspace and hand it over. Ask these, and build from the
 2. **What should your assistant call you?**
 3. **Where do you want the daily message — right here in this chat, or somewhere else your agent already delivers messages?** Workforce OS has no chat adapter of its own; delivery uses whatever surface the connecting agent already has.
 4. **What is the one thing you are actually working toward?** (Becomes their goals page. One line is enough.)
-5. **Which workers they have, or want?** (If they don't know, create only the Assistant.) Each becomes a Worker row — role, channel, domains, capabilities.
+5. **Which workers they have, or want?** (Offer available specialist profiles from the library in `agents/specialists/`, e.g. `Researcher` from `agents/specialists/researcher.md` for fact-finding and comparative analysis. If they don't know, create only the Assistant.) Each becomes a Worker row — role, channel, domains, capabilities.
 
 If they give short or vague answers, that is expected — **write them up properly yourself.** Never make them fill a form.
 
@@ -38,6 +38,7 @@ If they give short or vague answers, that is expected — **write them up proper
 
 - Day one is five things the user will use, not twenty they will abandon.
 - A life area is one select option, never a new database.
+- The project grows by adding specialists (single-file, single-concern), not by adding databases or modules.
 
 ### Off by default
 

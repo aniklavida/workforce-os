@@ -33,10 +33,11 @@ Workforce OS gives agents and people one system of record with explicit roles, a
 - [`AGENTS.md`](AGENTS.md) — the operating contract.
 - [`docs/STRUCTURE.md`](docs/STRUCTURE.md) — current Notion structure.
 - [`docs/INSTALL.md`](docs/INSTALL.md) — the install page: one pasteable instruction, the five setup questions, the build order and the idempotency rule, pointing at `AGENTS.md` and `docs/STRUCTURE.md` rather than copying them.
-- `agents/` — assistant, advisor and specialist profiles.
+- `agents/` — assistant, advisor and specialist profiles, including the specialist profile library (`agents/specialists/`) and template.
 - `commands/` — capture, daily review, planning review and assignment flows.
 - `skills/` — Claude Code setup and operating skills.
 - `scripts/workforce_acceptance.py` — acceptance test suite proving public documentation claims against fixtures.
+- `scripts/workforce_specialist.py` — specialist library discovery, scope contract validation, and fixture end-to-end task execution; `--self-test` proves real task execution, approval gate enforcement, and contributor workflow.
 - `scripts/workforce_capture.py` — fixture capture idempotency, chat question delivery, assignment gate integration, and specialist resolution; `--self-test` proves zero duplicate rows, zero repeated questions, and strict gate routing without a live agent.
 - `scripts/workforce_schema.py` — the Workforce database schema, `Assigned To` relation payloads, and the assignment gate; `--dry-run` and `--self-test` run without a workspace, `--live` creates the database once a credential is supplied.
 - `scripts/workforce_setup.py` — idempotent setup orchestration that builds the entire structure from five answers, discovers markers, reconciles existing objects, and converges with zero duplicates.

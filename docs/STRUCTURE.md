@@ -62,6 +62,9 @@ property carries a Notion field description naming who writes it.
 A human teammate is a row with `Kind = Human` and `Channel = None`. A worker
 added directly in Notion — no repository change — is assignable and read
 correctly, because the protocol resolves `Assigned To` through the relation.
+Specialist agents live in the profile library at `agents/specialists/<name>.md`;
+each is a single file with a single concern, carrying explicit "I do", "I do not",
+and "Approval required for" boundaries loaded into its Workforce row.
 
 ### The assignment gate
 
