@@ -541,8 +541,14 @@ def domain_page_declared_context(domain_name: str) -> list[dict]:
     ]
 
 
-def worker_instructions_body(role: str, worker_name: str) -> list[dict]:
+def worker_instructions_body(role: str, worker_name: str, instructions: str | None = None) -> list[dict]:
     """Page body instructions for a worker row in Workforce database."""
+    content = instructions if instructions else (
+        f"This is the startup brief for {worker_name}. "
+        "Operate according to AGENTS.md rules. "
+        "Never fabricate dates, respect domain context routing, "
+        "and update Agent Notes when starting or finishing work."
+    )
     return [
         {
             "object": "block",
@@ -558,12 +564,7 @@ def worker_instructions_body(role: str, worker_name: str) -> list[dict]:
                 "rich_text": [{
                     "type": "text",
                     "text": {
-                        "content": (
-                            f"This is the startup brief for {worker_name}. "
-                            "Operate according to AGENTS.md rules. "
-                            "Never fabricate dates, respect domain context routing, "
-                            "and update Agent Notes when starting or finishing work."
-                        )
+                        "content": content[:2000]
                     },
                 }]
             },
@@ -583,7 +584,8 @@ class SetupAnswers:
                  user_name: str = "Anik",
                  daily_channel: str = "Claude Code",
                  primary_goal: str = "Build and ship Workforce OS",
-                 agents: list[dict] | None = None):
+                 agents: list[dict] | None = None,
+                 specialists: list[str] | None = None):
         # 1. Main areas of life or work
         self.domains = domains or ["Work", "Personal", "Projects"]
         # 2. What assistant should call them
@@ -615,6 +617,30 @@ class SetupAnswers:
                 "status": "Active",
             },
         ]
+
+        # Add optional specialist profiles from library
+        if specialists:
+            try:
+                from workforce_specialist import load_specialist_library
+                library = load_specialist_library()
+            except ImportError:
+                library = {}
+
+            for s_name in specialists:
+                spec_key = next((k for k in library if k.lower() == s_name.lower()), None)
+                if spec_key:
+                    prof = library[spec_key]
+                    self.agents.append({
+                        "name": prof.role_name,
+                        "kind": "Agent",
+                        "role": "Specialist",
+                        "channel": daily_channel,
+                        "domains": [d for d in self.domains if d.lower() != "profile"],
+                        "may_approve": False,
+                        "capabilities": prof.description,
+                        "status": "Active",
+                        "instructions": prof.instructions_body,
+                    })
 
     def to_dict(self) -> dict:
         return {
@@ -1156,7 +1182,9 @@ class IdempotentSetupOrchestrator:
                             "Capabilities": {"rich_text": [{"type": "text", "text": {"content": ag.get("capabilities", "")}}]},
                             "Status": {"select": {"name": ag.get("status", "Active")}},
                         },
-                        children=worker_instructions_body(ag.get("role", "Specialist"), ag_name),
+                        children=worker_instructions_body(
+                            ag.get("role", "Specialist"), ag_name, instructions=ag.get("instructions")
+                        ),
                     )
                     if ag.get("role") == "Assistant":
                         self.assistant_worker_row_id = ag_row["id"]
@@ -1754,11 +1782,22 @@ def print_dry_run_report(answers: SetupAnswers, parent_page_id: str) -> None:
     preview = orch.preview_plan(scan)
     report = orch.run()
 
+    try:
+        from workforce_specialist import load_specialist_library
+        library = load_specialist_library()
+        available_specs = [
+            {"name": p.role_name, "description": p.description, "file": p.file_path}
+            for p in library.values()
+        ]
+    except ImportError:
+        available_specs = []
+
     output = {
         "dry_run": True,
         "parent_page_id": parent_page_id,
         "answers": answers.to_dict(),
         "preview": preview,
+        "available_specialists": available_specs,
         "simulated_execution": {
             "success": report.success,
             "objects_created": report.objects_created,
@@ -1795,6 +1834,8 @@ def main() -> int:
                         help="chat surface for daily message")
     parser.add_argument("--goal", default="Build and ship Workforce OS v1.0",
                         help="one primary goal user is working toward")
+    parser.add_argument("--specialists", default="",
+                        help="comma-separated specialist worker profiles from library (e.g. 'researcher')")
     parser.add_argument("--yes", action="store_true",
                         help="auto-approve destructive or confirmation steps")
     parser.add_argument("--api-version",
@@ -1802,11 +1843,13 @@ def main() -> int:
     args = parser.parse_args()
 
     domains = [d.strip() for d in args.domains.split(",") if d.strip()]
+    specialists = [s.strip() for s in args.specialists.split(",") if s.strip()]
     answers = SetupAnswers(
         domains=domains,
         user_name=args.user_name,
         daily_channel=args.daily_channel,
         primary_goal=args.goal,
+        specialists=specialists,
     )
 
     if args.self_test:
